@@ -1,0 +1,32 @@
+-f /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/avx2
+-f /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+absl-py==0.7.1
+astor==0.8.1
+cycler==0.10.0
+future==0.17.1
+gast==0.3.3
+grpcio==1.25.0
+h5py==2.10.0
+joblib==0.14.1
+Keras==2.2.4
+Keras-Applications==1.0.8
+Keras-Preprocessing==1.1.0
+kiwisolver==1.1.0
+Markdown==3.2.1
+matplotlib==3.1.1
+numpy==1.18.2
+pandas==1.0.3
+pefile==2019.4.18
+protobuf==3.11.3
+pyparsing==2.4.6
+python-dateutil==2.8.1
+pytz==2019.3
+PyYAML==5.1.2
+scikit-learn==0.22.1
+scipy==1.4.1
+seaborn==0.10.0
+six==1.14.0
+tensorboard==1.12.2
+tensorflow-gpu==1.12.0+computecanada
+termcolor==1.1.0
+Werkzeug==1.0.0
