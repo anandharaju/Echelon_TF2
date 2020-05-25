@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from keras.backend.tensorflow_backend import get_session
+#from keras.backend.tensorflow_backend import get_session
 from utils.preprocess import preprocess, preprocess_by_section
 
 

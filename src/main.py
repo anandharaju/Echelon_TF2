@@ -4,9 +4,9 @@ import glob
 from config import constants as cnst
 from config.echelon_meta import EchelonMeta
 import core.generate_train_predict as gtp
-from keras.backend.tensorflow_backend import set_session
-from keras.backend.tensorflow_backend import clear_session
-from keras.backend.tensorflow_backend import get_session
+#from keras.backend.tensorflow_backend import set_session
+#from keras.backend.tensorflow_backend import clear_session
+#from keras.backend.tensorflow_backend import get_session
 from keras import backend as K
 import gc
 from numba import cuda
