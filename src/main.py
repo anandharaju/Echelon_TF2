@@ -21,7 +21,7 @@ print("Tensorflow Version:", tf.__version__)
 if not cnst.USE_GPU:
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-else:
+#else:
     # ###### FOR TENSORFLOW 1.12 ######
     # config = tf.ConfigProto()
     # config.gpu_options.allow_growth = True
@@ -31,15 +31,15 @@ else:
     # set_session(tf.Session(config=config))
 
     # ###### FOR TENSORFLOW 2.1.x ######
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if gpus:
-        try:
-            for gpu in gpus:
-                tf.config.experimental.set_memory_growth(gpu, True)
+#    gpus = tf.config.experimental.list_physical_devices('GPU')
+#    if gpus:
+#        try:
+#            for gpu in gpus:
+#                tf.config.experimental.set_memory_growth(gpu, True)
                 # tf.config.experimental.set_virtual_device_configuration(
                 # gpu, [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=8092)])
-        except RuntimeError as e:
-            print(e)
+#        except RuntimeError as e:
+#            print(e)
 
 
 def clean_files():
