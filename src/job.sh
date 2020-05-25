@@ -13,5 +13,5 @@
 #SBATCH --mail-user=aduraira@sfu.ca
 #SBATCH --mail-type=ALL
 
-source env3/bin/activate
+source tf2/bin/activate
 python main.py

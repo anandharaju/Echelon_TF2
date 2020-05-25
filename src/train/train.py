@@ -74,13 +74,14 @@ def train(args):
     args.t1_mcp = ModelCheckpoint(join(args.save_path, args.t1_model_name),
                                monitor="acc", save_best_only=args.save_best, save_weights_only=False)
 
-    history = args.t1_model_base.fit_generator(
-        utils.data_generator(args.train_partition, args.t1_x_train, args.t1_y_train, args.t1_max_len, args.t1_batch_size, args.t1_shuffle),
-        class_weight=args.t1_class_weights,
+    data_gen = utils.data_generator(args.train_partition, args.t1_x_train, args.t1_y_train, args.t1_max_len, args.t1_batch_size, args.t1_shuffle)
+    history = args.t1_model_base.fit(
+        data_gen,
+        # class_weight=args.t1_class_weights,
         steps_per_epoch=args.t1_train_steps,
         epochs=args.t1_epochs,
         verbose=args.t1_verbose,
-        callbacks=[args.t1_ear, args.t1_mcp]
+        # callbacks=[args.t1_ear, args.t1_mcp]
         # , validation_data=utils.data_generator(args.t1_x_val, args.t1_y_val, args.t1_max_len, args.t1_batch_size,
         # args.t1_shuffle) , validation_steps=val_steps
     )
@@ -103,13 +104,14 @@ def train_by_section(args):
 
     # Check MAX_LEN modification is needed - based on proportion of section vs whole file size
     # args.max_len = cnst.MAX_FILE_SIZE_LIMIT + (cnst.CONV_WINDOW_SIZE * len(args.q_sections))
-    history = args.t2_model_base.fit_generator(
-        utils.data_generator_by_section(args.whole_b1_train_partition, args.section_b1_train_partition, args.q_sections, args.train_section_map, args.t2_x_train, args.t2_y_train, args.t2_max_len, args.t2_batch_size, args.t2_shuffle),
-        class_weight=args.t2_class_weights,
+    data_gen = utils.data_generator_by_section(args.whole_b1_train_partition, args.section_b1_train_partition, args.q_sections, args.train_section_map, args.t2_x_train, args.t2_y_train, args.t2_max_len, args.t2_batch_size, args.t2_shuffle)
+    history = args.t2_model_base.fit(
+        data_gen,
+        # class_weight=args.t2_class_weights,
         steps_per_epoch=len(args.t2_x_train)//args.t2_batch_size + 1,
         epochs=args.t2_epochs,
         verbose=args.t2_verbose,
-        callbacks=[args.t2_ear, args.t2_mcp]
+        # callbacks=[args.t2_ear, args.t2_mcp]
         # , validation_data=utils.data_generator_by_section(args.q_sections, args.t2_x_val, args.t2_y_val
         # , args.t2_max_len, args.t2_batch_size, args.t2_shuffle)
         # , validation_steps=args.val_steps
@@ -209,7 +211,7 @@ def train_tier2(args):
 
 
 def evaluate_tier1(args):
-    print("Memory Required:", get_model_memory_usage(args.t1_batch_size, args.t1_model_base))
+    # print("Memory Required:", get_model_memory_usage(args.t1_batch_size, args.t1_model_base))
     eval_steps = len(args.t1_x_val) // args.t1_batch_size
     args.t1_val_steps = eval_steps - 1 if len(args.t1_x_val) % args.t1_batch_size == 0 else eval_steps + 1
 
@@ -223,7 +225,7 @@ def evaluate_tier1(args):
 
 
 def evaluate_tier2(args):
-    print("Memory Required:", get_model_memory_usage(args.t2_batch_size, args.t2_model_base))
+    # print("Memory Required:", get_model_memory_usage(args.t2_batch_size, args.t2_model_base))
     eval_steps = len(args.t2_x_val) // args.t2_batch_size
     args.t2_val_steps = eval_steps - 1 if len(args.t2_x_val) % args.t2_batch_size == 0 else eval_steps + 1
 

@@ -24,7 +24,7 @@ PREDICT_VERBOSE = VERBOSE_1
 ATI_PREDICT_VERBOSE = VERBOSE_1
 
 #####################################################################################
-USE_GPU = True
+USE_GPU = False
 NUM_GPU = 1
 GPU_MEM_LIMIT = 0
 

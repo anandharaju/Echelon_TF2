@@ -11,6 +11,7 @@ from keras import backend as K
 import gc
 from numba import cuda
 import tensorflow as tf
+print("Tensorflow Version:", tf.__version__)
 
 
 # ####################################
@@ -50,10 +51,10 @@ def clean_files():
 
 
 def main():
-    print(gc.collect())
-    sess = get_session()
-    clear_session()
-    sess.close()
+    gc.collect()
+    # sess = get_session()
+    # clear_session()
+    # sess.close()
     K.clear_session()
     metaObj = EchelonMeta()
     # metaObj.project_details()
@@ -73,8 +74,8 @@ def main():
     except Exception as e:
         print(e)
         K.clear_session()
-        cuda.select_device(0)
-        cuda.close()
+        # cuda.select_device(0)
+        # cuda.close()
     return
 
     '''cust_data = ['small_pkl_6_1.csv', 'small_pkl_7_1.csv', 'small_pkl_8_1.csv', 'small_pkl_9_1.csv', 'small_pkl_10_1.csv']
