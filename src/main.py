@@ -11,6 +11,9 @@ from keras import backend as K
 import gc
 from numba import cuda
 import tensorflow as tf
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_policy(policy)
 print("Tensorflow Version:", tf.__version__)
 
 
@@ -31,15 +34,15 @@ if not cnst.USE_GPU:
     # set_session(tf.Session(config=config))
 
     # ###### FOR TENSORFLOW 2.1.x ######
-#    gpus = tf.config.experimental.list_physical_devices('GPU')
-#    if gpus:
-#        try:
-#            for gpu in gpus:
-#                tf.config.experimental.set_memory_growth(gpu, True)
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        try:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
                 # tf.config.experimental.set_virtual_device_configuration(
                 # gpu, [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=8092)])
-#        except RuntimeError as e:
-#            print(e)
+        except RuntimeError as e:
+            print(e)
 
 
 def clean_files():
