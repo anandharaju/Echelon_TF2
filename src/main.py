@@ -1,6 +1,7 @@
 import time
 import os
 import glob
+from analyzers.collect_exe_files import sep_files_by_pkl_list
 from config import constants as cnst
 from config.echelon_meta import EchelonMeta
 import core.generate_train_predict as gtp
@@ -54,6 +55,8 @@ def clean_files():
 
 
 def main():
+    # sep_files_by_pkl_list()
+    # return
     gc.collect()
     # sess = get_session()
     # clear_session()
