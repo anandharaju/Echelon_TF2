@@ -186,13 +186,13 @@ def plot_partition_epoch_history(trn_acc, val_acc, trn_loss, val_loss, tier):
         plt.plot(range(len(val_acc)), np.nan_to_num(val_acc), label=tier + ' Validation Acc')
         plt.plot(range(len(trn_loss)), np.nan_to_num(trn_loss), label=tier + ' Training Loss')
         plt.plot(range(len(val_loss)), np.nan_to_num(val_loss), label=tier + ' Validation Loss')
+        plt.xlabel("Epochs", fontsize=10)
+        plt.ylabel("Accuracy/Loss", fontsize=10)
+        plt.legend(fontsize=10)
+        plt.savefig(cnst.PLOT_PATH + tier + "_Train_Val_History.png", bbox_inches='tight')  # _" + str(time.time()) + "
+        # plt.show()
     except Exception as e:
         print("Error occurred while plotting partition epoch history", str(e))
-    plt.xlabel("Epochs", fontsize=10)
-    plt.ylabel("Accuracy/Loss", fontsize=10)
-    plt.legend(fontsize=10)
-    plt.savefig(cnst.PLOT_PATH + tier + "_Train_Val_History.png", bbox_inches='tight')  # _" + str(time.time()) + "
-    # plt.show()
 
 
 def save_stats_as_plot(qualification_criteria):

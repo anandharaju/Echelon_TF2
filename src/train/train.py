@@ -26,43 +26,13 @@ import pandas as pd
 from analyzers.collect_available_sections import collect_sections
 import random
 from plots.plots import display_probability_chart
-from analyzers.collect_exe_files import get_partition_data, partition_pkl_files_by_count
+from analyzers.collect_exe_files import get_partition_data, partition_pkl_files_by_count, partition_pkl_files_by_size
 import gc
-
-
-def get_model_memory_usage(batch_size, model):
-    import numpy as np
-    from keras import backend as K
-
-    shapes_mem_count = 0
-    internal_model_mem_count = 0
-    for l in model.layers:
-        layer_type = l.__class__.__name__
-        if layer_type == 'Model':
-            internal_model_mem_count += get_model_memory_usage(batch_size, l)
-        single_layer_mem = 1
-        for s in l.output_shape:
-            if s is None:
-                continue
-            single_layer_mem *= s
-        shapes_mem_count += single_layer_mem
-
-    trainable_count = np.sum([K.count_params(p) for p in set(model.trainable_weights)])
-    non_trainable_count = np.sum([K.count_params(p) for p in set(model.non_trainable_weights)])
-
-    number_size = 4.0
-    if K.floatx() == 'float16':
-         number_size = 2.0
-    if K.floatx() == 'float64':
-         number_size = 8.0
-
-    total_memory = number_size*(batch_size*shapes_mem_count + trainable_count + non_trainable_count)
-    gbytes = np.round(total_memory / (1024.0 ** 3), 3) + internal_model_mem_count
-    return gbytes
+from keras import backend as K
+from numba import cuda
 
 
 def train(args):
-    # print("Memory Required:", get_model_memory_usage(args.t1_batch_size, args.t1_model_base))
     train_steps = len(args.t1_x_train) // args.t1_batch_size
     args.t1_train_steps = train_steps - 1 if len(args.t1_x_train) % args.t1_batch_size == 0 else train_steps + 1
 
@@ -127,19 +97,19 @@ def get_model1(args):
     if args.resume:
         if cnst.USE_PRETRAINED_FOR_TIER1:
             print("[ CAUTION ] : Resuming with pretrained model for TIER1 - "+args.pretrained_t1_model_name)
-            model1 = load_model(args.model_path + args.pretrained_t1_model_name)
+            model1 = load_model(args.model_path + args.pretrained_t1_model_name, compile=False)
             model1.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
             if cnst.NUM_GPU > 1:
                 multi_gpu_model1 = multi_gpu_model(model1, gpus=cnst.NUM_GPU)
-                multi_gpu_model1.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+                # multi_gpu_model1.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
                 return multi_gpu_model1
         else:
             print("[ CAUTION ] : Resuming with old model")
-            model1 = load_model(args.model_path + args.t1_model_name)
+            model1 = load_model(args.model_path + args.t1_model_name, compile=False)
             model1.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
             if cnst.NUM_GPU > 1:
                 multi_gpu_model1 = multi_gpu_model(model1, gpus=cnst.NUM_GPU)
-                multi_gpu_model1.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=["accuracy"])
+                # multi_gpu_model1.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=["accuracy"])
                 return multi_gpu_model1
     else:
         if args.byte:
@@ -160,21 +130,20 @@ def get_model1(args):
 def get_model2(args):
     # prepare TIER-2 model
     model2 = None
+    optimizer = optimizers.Adam(lr=0.001)
     if args.resume:
         if cnst.USE_PRETRAINED_FOR_TIER2:
             print("[ CAUTION ] : Resuming with pretrained model for TIER2 - "+args.pretrained_t2_model_name)
-            model2 = load_model(args.model_path + args.pretrained_t2_model_name)
+            model2 = load_model(args.model_path + args.pretrained_t2_model_name, compile=False)
+            model2.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=["accuracy"])
             if cnst.NUM_GPU > 1:
                 model2 = multi_gpu_model(model2, gpus=cnst.NUM_GPU)
-            optimizer = optimizers.Adam(lr=0.001)  # , beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
-            model2.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
         else:
             print("[ CAUTION ] : Resuming with old model")
-            model2 = load_model(args.model_path + args.t2_model_name)
-            # if cnst.NUM_GPU > 1:
-            #    model2 = multi_gpu_model(model2, gpus=cnst.NUM_GPU)
-            optimizer = optimizers.Adam(lr=0.001)
+            model2 = load_model(args.model_path + args.t2_model_name, compile=False)
             model2.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=["accuracy"])
+            if cnst.NUM_GPU > 1:
+                model2 = multi_gpu_model(model2, gpus=cnst.NUM_GPU)
 
     else:
         # print("*************************** CREATING new model *****************************")
@@ -191,6 +160,7 @@ def get_model2(args):
 
     # model2.summary()
     return model2
+
 
 
 def train_tier1(args):
@@ -211,7 +181,6 @@ def train_tier2(args):
 
 
 def evaluate_tier1(args):
-    # print("Memory Required:", get_model_memory_usage(args.t1_batch_size, args.t1_model_base))
     eval_steps = len(args.t1_x_val) // args.t1_batch_size
     args.t1_val_steps = eval_steps - 1 if len(args.t1_x_val) % args.t1_batch_size == 0 else eval_steps + 1
 
@@ -225,7 +194,6 @@ def evaluate_tier1(args):
 
 
 def evaluate_tier2(args):
-    # print("Memory Required:", get_model_memory_usage(args.t2_batch_size, args.t2_model_base))
     eval_steps = len(args.t2_x_val) // args.t2_batch_size
     args.t2_val_steps = eval_steps - 1 if len(args.t2_x_val) % args.t2_batch_size == 0 else eval_steps + 1
 
@@ -325,6 +293,12 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
         cnst.USE_PRETRAINED_FOR_TIER1 = False  # Use model trained through Echelon
         print("SKIPPED: Tier-1 Training process")
 
+    import tensorflow as tf
+    tf.reset_default_graph()
+    K.clear_session()
+    #cuda.select_device(0)
+    #cuda.close()
+
     if cnst.ONLY_TIER1_TRAINING:
         return
 
@@ -353,7 +327,7 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
             val_b1datadf.to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "b1_val_"+str(fold_index)+"_pkl.csv", header=None, index=None, mode='a')
 
         val_b1datadf = pd.read_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "b1_val_"+str(fold_index)+"_pkl.csv", header=None)
-        b1val_partition_count = partition_pkl_files_by_count("b1_val", fold_index, val_b1datadf.iloc[:, 0], val_b1datadf.iloc[:, 1])
+        b1val_partition_count = partition_pkl_files_by_count("b1_val", fold_index, val_b1datadf.iloc[:, 0], val_b1datadf.iloc[:, 1]) if cnst.PARTITION_BY_COUNT else partition_pkl_files_by_size("b1_val", fold_index, val_b1datadf.iloc[:, 0], val_b1datadf.iloc[:, 1])
         pd.DataFrame([{"b1_train": None, "b1_val": b1val_partition_count, "b1_test": None}]).to_csv(os.path.join(cnst.DATA_SOURCE_PATH, "b1_partition_tracker_" + str(fold_index) + ".csv"), index=False)
         pd.DataFrame([{"thd1": max_thd1, "thd2": None, "boosting_bound": min_boosting_bound}]).to_csv(os.path.join(cnst.PROJECT_BASE_PATH + cnst.ESC + "out" + cnst.ESC + "result" + cnst.ESC, "training_outcomes_" + str(fold_index) + ".csv"), index=False)
     else:
@@ -383,7 +357,7 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
 
         train_b1data_all_df = pd.read_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "b1_train_" + str(fold_index) + "_pkl.csv", header=None)
         b1_partition_tracker = pd.read_csv(os.path.join(cnst.DATA_SOURCE_PATH, "b1_partition_tracker_" + str(fold_index) + ".csv"))
-        b1_partition_tracker["b1_train"][0] = partition_pkl_files_by_count("b1_train", fold_index, train_b1data_all_df.iloc[:, 0], train_b1data_all_df.iloc[:, 1])
+        b1_partition_tracker["b1_train"][0] = partition_pkl_files_by_count("b1_train", fold_index, train_b1data_all_df.iloc[:, 0], train_b1data_all_df.iloc[:, 1]) if cnst.PARTITION_BY_COUNT else partition_pkl_files_by_size("b1_train", fold_index, train_b1data_all_df.iloc[:, 0], train_b1data_all_df.iloc[:, 1])
         b1_partition_tracker.to_csv(os.path.join(cnst.DATA_SOURCE_PATH, "b1_partition_tracker_" + str(fold_index) + ".csv"), index=False)
     else:
         print("SKIPPED: Prediction over Training data in TIER-1 to generate B1 data for TIER-2 Training")

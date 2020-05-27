@@ -17,7 +17,7 @@ from plots.auc import cv as cv_info
 from collections import OrderedDict
 import os
 import pickle
-from analyzers.collect_exe_files import partition_pkl_files_by_count
+from analyzers.collect_exe_files import partition_pkl_files_by_count, partition_pkl_files_by_size
 import sklearn.utils
 
 
@@ -73,7 +73,7 @@ def partition_dataset(dataset_path):
         temp_partitioningdata.to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "master_partition_pkl.csv", header=None, index=None, mode="a")
 
     partitioningdf = pd.read_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "master_partition_pkl.csv", header=None)
-    pcount = partition_pkl_files_by_count(None, None, partitioningdf.iloc[:, 0], partitioningdf.iloc[:, 1])
+    pcount = partition_pkl_files_by_count(None, None, partitioningdf.iloc[:, 0], partitioningdf.iloc[:, 1]) if cnst.PARTITION_BY_COUNT else partition_pkl_files_by_size(None, None, partitioningdf.iloc[:, 0], partitioningdf.iloc[:, 1])
     pd.DataFrame([{"master": pcount}]).to_csv(os.path.join(cnst.DATA_SOURCE_PATH, "master_partition_tracker.csv"), index=False)
     return pcount
 
