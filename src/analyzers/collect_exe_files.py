@@ -4,6 +4,7 @@ import pandas as pd
 from shutil import copyfile
 import config.constants as cnst
 import pickle
+import numpy as np
 
 
 def partition_pkl_files_by_size(type, fold, files, labels):
@@ -155,7 +156,8 @@ def group_files_by_pkl_list():
 
 
 def sep_files_by_pkl_list():
-    csv = pd.read_csv(cnst.ALL_FILE, header=None)
+    # csv = pd.read_csv('/home/aduraira/projects/def-wangk/aduraira/Echelon_TF2/data/ds1_pkl.csv', header=None)
+    csv = pd.read_csv('D:\\03_GitWorks\\Echelon_TF2\\data\\xs_pkl.csv', header=None)
     t1_dst_folder = cnst.PKL_SOURCE_PATH + cnst.ESC + "t1" + cnst.ESC
     t2_dst_folder = cnst.PKL_SOURCE_PATH + cnst.ESC + "t2" + cnst.ESC
     if not os.path.exists(t1_dst_folder):
@@ -163,12 +165,35 @@ def sep_files_by_pkl_list():
     if not os.path.exists(t2_dst_folder):
         os.makedirs(t2_dst_folder)
     for file in csv.iloc[:, 0]:
-        src_path = os.path.join('/home/aduraira/projects/def-wangk/aduraira/pickle_files/', file)
+        # src_path = os.path.join('/home/aduraira/projects/def-wangk/aduraira/pickle_files/', file)
+        src_path = os.path.join('D:\\08_Dataset\\Internal\\mar2020\\pickle_files\\', file)
         with open(src_path, 'rb') as f:
             t1_pkl = {}
             t2_pkl = {}
             cur_pkl = pickle.load(f)
             t1_pkl = {"whole_bytes": cur_pkl["whole_bytes"], "benign": cur_pkl["benign"]}
+
+            whole_bytes = cur_pkl["whole_bytes"]
+            wb_size = len(whole_bytes)
+            sections_end = 0
+            keys = cur_pkl["section_info"].keys()
+            for key in keys:
+                if cur_pkl["section_info"][key]['section_bounds']["end_offset"] > sections_end:
+                    sections_end = cur_pkl["section_info"][key]['section_bounds']["end_offset"]
+
+            if sections_end <= 0:
+                print("[OVERLAY DATA NOT ADDED] Invalid section end found - ", sections_end)
+            elif sections_end < wb_size - 1:
+                data = whole_bytes[sections_end + 1:wb_size]
+                section_data = dict()
+                section_data["section_data"] = data
+                section_data["section_size_byte"] = len(data)
+                # section_bounds
+                section_data["section_bounds"] = {}
+                section_data["section_bounds"]["start_offset"] = sections_end + 1
+                section_data["section_bounds"]["end_offset"] = wb_size - 1
+                cur_pkl["section_info"][cnst.TAIL] = section_data
+
             del cur_pkl["whole_bytes"]
             t2_pkl = cur_pkl
             with open(t1_dst_folder + file, "wb") as t1handle:
@@ -259,8 +284,8 @@ if __name__ == '__main__':
     max_files = 110000
     # total_count, total_size = copy_files(src_path, dst_path, ext, max_size)
 
-    #sep_files_by_pkl_list()
-    collect_sha()
+    sep_files_by_pkl_list()
+    #collect_sha()
     '''
 
     # group_files_by_pkl_list()

@@ -37,16 +37,16 @@ def data_generator(partition, data, labels, max_len, batch_size, shuffle):
         print("TIER1 : No partition supplied. Check if partition loaded correctly with correct path")
 
 
-def data_generator_by_section(wpartition, spartition, sections, section_map, data, labels, max_len, batch_size, shuffle):
+def data_generator_by_section(spartition, sections, section_map, data, labels, max_len, batch_size, shuffle):
     idx = np.arange(len(data))
     if shuffle:
         np.random.shuffle(idx)
     batches = [idx[range(batch_size*i, min(len(data), batch_size*(i+1)))] for i in range(len(data)//batch_size+1)]
-    if wpartition is not None and spartition is not None:
+    if spartition is not None:
         while True:
             for i in batches:
                 try:
-                    xx = preprocess_by_section(wpartition, spartition, data[i], max_len, sections, section_map)[0]
+                    xx = preprocess_by_section(spartition, data[i], max_len, sections, section_map)[0]
                     yy = labels[i]
                     yield (xx, yy)
                 except Exception as e:

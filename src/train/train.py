@@ -198,7 +198,7 @@ def evaluate_tier2(args):
     args.t2_val_steps = eval_steps - 1 if len(args.t2_x_val) % args.t2_batch_size == 0 else eval_steps + 1
 
     history = args.t2_model_base.evaluate_generator(
-        utils.data_generator_by_section(args.wpartition, args.spartition, args.q_sections, None, args.t2_x_val, args.t2_y_val, args.t2_max_len, args.t2_batch_size, args.t2_shuffle),
+        utils.data_generator_by_section(args.spartition, args.q_sections, None, args.t2_x_val, args.t2_y_val, args.t2_max_len, args.t2_batch_size, args.t2_shuffle),
         steps=args.t2_val_steps,
         verbose=args.t2_verbose
     )
@@ -293,11 +293,11 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
         cnst.USE_PRETRAINED_FOR_TIER1 = False  # Use model trained through Echelon
         print("SKIPPED: Tier-1 Training process")
 
-    import tensorflow as tf
-    tf.reset_default_graph()
-    K.clear_session()
-    #cuda.select_device(0)
-    #cuda.close()
+    # import tensorflow as tf
+    # tf.reset_default_graph()
+    # K.clear_session()
+    # cuda.select_device(0)
+    # cuda.close()
 
     if cnst.ONLY_TIER1_TRAINING:
         return
@@ -455,13 +455,13 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
                 for pcount in range(0, b1val_partition_count):
                     b1valdatadf = pd.read_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + "b1_val_" + str(fold_index) + "_p" + str(pcount) + ".csv", header=None)
                     t_args.t2_x_val, t_args.t2_y_val = b1valdatadf.iloc[:,0].values, b1valdatadf.iloc[:,1].values
-                    t_args.wpartition = get_partition_data("b1_val", fold_index, pcount, "t1")
+                    # t_args.wpartition = get_partition_data("b1_val", fold_index, pcount, "t1")
                     t_args.spartition = get_partition_data("b1_val", fold_index, pcount, "t2")
                     t_args.q_sections = q_sections_by_q_criteria[q_criterion]
                     v_history = evaluate_tier2(t_args)
                     cur_val_loss.append(v_history[0])
                     cur_val_acc.append(v_history[1])
-                    del t_args.wpartition  # Release Memory
+                    # del t_args.wpartition  # Release Memory
                     del t_args.spartition  # Release Memory
                     gc.collect()
 
@@ -499,7 +499,7 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
             print("Tier-2 Validation over Val B1 partition:", pcount)
             b1valdatadf = pd.read_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + "b1_val_" + str(fold_index) + "_p" + str(pcount) + ".csv", header=None)
             predict_t2_val_data_partition = pObj(cnst.TIER2, t2_fpr, b1valdatadf.iloc[:, 0], b1valdatadf.iloc[:, 1])
-            predict_t2_val_data_partition.wpartition = get_partition_data("b1_val", fold_index, pcount, "t1")
+            # predict_t2_val_data_partition.wpartition = get_partition_data("b1_val", fold_index, pcount, "t1")
             predict_t2_val_data_partition.spartition = get_partition_data("b1_val", fold_index, pcount, "t2")
             predict_t2_val_data_partition.thd = None
             predict_t2_val_data_partition.q_sections = q_sections_by_q_criteria[q_criterion]
@@ -507,7 +507,7 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
 
             predict_t2_val_data_partition = predict.predict_tier2(model_idx, predict_t2_val_data_partition, fold_index)
 
-            del predict_t2_val_data_partition.wpartition  # Release Memory
+            # del predict_t2_val_data_partition.wpartition  # Release Memory
             del predict_t2_val_data_partition.spartition  # Release Memory
             gc.collect()
 

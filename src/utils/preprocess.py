@@ -32,7 +32,7 @@ def preprocess(partition, file_list, max_len):
     return seq, len_list
 
 
-def preprocess_by_section(wpartition, spartition, file_list, max_len, sections, section_map):
+def preprocess_by_section(spartition, file_list, max_len, sections, section_map):
     '''
     Return processed data (ndarray) and original section length (list)
     '''
@@ -72,7 +72,7 @@ def preprocess_by_section(wpartition, spartition, file_list, max_len, sections, 
                         combined = np.concatenate(
                             [combined, fjson["section_info"][section]["section_data"], np.zeros(cnst.CONV_WINDOW_SIZE)])
 
-                if cnst.TAIL in sections:
+                '''if cnst.TAIL in sections:
                     whole_bytes = wpartition[fn]["whole_bytes"]
                     fsize = len(whole_bytes)
                     sections_end = 0
@@ -88,7 +88,9 @@ def preprocess_by_section(wpartition, spartition, file_list, max_len, sections, 
 
                     if len(combined) > max_len:
                         print("[CAUTION: LOSS_OF_DATA] Combined sections exceeded max sample length by " + str(len(combined) - max_len) + " bytes. FileSize:"+str(fsize)+" sections_end:"+str(sections_end))
-
+                '''
+                if len(combined) > max_len:
+                    print("[CAUTION: LOSS_OF_DATA] Combined sections exceeded max sample length by " + str(len(combined) - max_len) + " bytes.")
                 corpus.append(combined)
 
             except Exception as e:

@@ -26,11 +26,11 @@ def predict_byte(model, partition, xfiles, args):
     return pred
 
 
-def predict_byte_by_section(model, wpartition, spartition, xfiles, q_sections, section_map, args):
+def predict_byte_by_section(model, spartition, xfiles, q_sections, section_map, args):
     xlen = len(xfiles)
     pred_steps = xlen//args.batch_size if xlen % args.batch_size == 0 else xlen//args.batch_size + 1
     pred = model.predict_generator(
-        utils.data_generator_by_section(wpartition, spartition, q_sections, section_map, xfiles, np.ones(xfiles.shape), args.max_len, args.batch_size, shuffle=False),
+        utils.data_generator_by_section(spartition, q_sections, section_map, xfiles, np.ones(xfiles.shape), args.max_len, args.batch_size, shuffle=False),
         steps=pred_steps,
         verbose=args.verbose
         )
@@ -197,7 +197,7 @@ def predict_tier2(model_idx, pobj, fold_index):
 
     if cnst.EXECUTION_TYPE[model_idx] == cnst.BYTE:
         # pbs.trigger_predict_by_section()
-        pobj.yprob = predict_byte_by_section(tier2_model, pobj.wpartition, pobj.spartition, pobj.xtrue, pobj.q_sections, pobj.predict_section_map, predict_args)
+        pobj.yprob = predict_byte_by_section(tier2_model, pobj.spartition, pobj.xtrue, pobj.q_sections, pobj.predict_section_map, predict_args)
     elif cnst.EXECUTION_TYPE[model_idx] == cnst.FEATURISTIC:
         pobj.yprob = predict_by_features(tier2_model, pobj.xtrue, predict_args)
     elif cnst.EXECUTION_TYPE[model_idx] == cnst.FUSION:
@@ -419,11 +419,11 @@ def init(model_idx, test_partitions, cv_obj, fold_index):
             predict_t2_test_data_partition.thd = thd2
             predict_t2_test_data_partition.q_sections = q_sections
             predict_t2_test_data_partition.predict_section_map = section_map
-            predict_t2_test_data_partition.wpartition = get_partition_data("b1_test", fold_index, pcount, "t1")
+            # predict_t2_test_data_partition.wpartition = get_partition_data("b1_test", fold_index, pcount, "t1")
             predict_t2_test_data_partition.spartition = get_partition_data("b1_test", fold_index, pcount, "t2")
             predict_t2_test_data_partition = predict_tier2(model_idx, predict_t2_test_data_partition, fold_index)
 
-            del predict_t2_test_data_partition.wpartition  # Release Memory
+            # del predict_t2_test_data_partition.wpartition  # Release Memory
             del predict_t2_test_data_partition.spartition  # Release Memory
             gc.collect()
 
