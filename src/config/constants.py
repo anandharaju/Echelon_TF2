@@ -72,7 +72,7 @@ RANDOMIZE = False  # Set Random seed for True
 
 #  DATA SOURCE
 PARTITION_BY_COUNT = False
-MAX_PARTITION_SIZE = int(1 * 2 ** 30)
+MAX_PARTITION_SIZE = int(2 * 2 ** 30)
 MAX_FILES_PER_PARTITION = 512
 MAX_SECT_BYTE_MAP_SIZE = 2000
 MAX_FILE_SIZE_LIMIT = 2**20  # 204800
@@ -84,7 +84,7 @@ USE_POOLING_LAYER = True
 PROJECT_BASE_PATH = '/home/aduraira/projects/def-wangk/aduraira/' + PROJECT_ROOT if LINUX_ENV else 'D:\\03_GitWorks\\'+PROJECT_ROOT
 DATA_SOURCE_PATH = '/home/aduraira/projects/def-wangk/aduraira/partitions/' if LINUX_ENV else 'D:\\08_Dataset\\Internal\\mar2020\\partitions\\xs_partition\\'
 PKL_SOURCE_PATH = '/home/aduraira/projects/def-wangk/aduraira/pickles/' if LINUX_ENV else 'D:\\08_Dataset\\Internal\\mar2020\\pickles\\'
-ALL_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'ds1_pkl.csv'  # 'balanced_pkl.csv'  # small_pkl_1_1.csv'
+ALL_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'ds1_idx_pkl.csv'  # 'balanced_pkl.csv'  # small_pkl_1_1.csv'
 BENIGN_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'medium_benign_pkl.csv'
 MALWARE_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'medium_malware_pkl.csv'
 TRAINING_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'training.csv'

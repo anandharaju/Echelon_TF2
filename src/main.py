@@ -55,8 +55,6 @@ def clean_files():
 
 
 def main():
-    # sep_files_by_pkl_list()
-    # return
     gc.collect()
     # sess = get_session()
     # clear_session()
@@ -96,4 +94,5 @@ def main():
 
 
 if __name__ == '__main__':
+    # sep_files_by_pkl_list()
     main()

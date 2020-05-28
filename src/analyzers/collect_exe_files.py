@@ -156,8 +156,8 @@ def group_files_by_pkl_list():
 
 
 def sep_files_by_pkl_list():
-    # csv = pd.read_csv('/home/aduraira/projects/def-wangk/aduraira/Echelon_TF2/data/ds1_pkl.csv', header=None)
-    csv = pd.read_csv('D:\\03_GitWorks\\Echelon_TF2\\data\\xs_pkl.csv', header=None)
+    csv = pd.read_csv('/home/aduraira/projects/def-wangk/aduraira/Echelon_TF2/data/ds1_pkl.csv', header=None)
+    # csv = pd.read_csv('D:\\03_GitWorks\\Echelon_TF2\\data\\xs_pkl.csv', header=None)
     list_idx = []
     t1_dst_folder = cnst.PKL_SOURCE_PATH + "t1" + cnst.ESC
     t2_dst_folder = cnst.PKL_SOURCE_PATH + "t2" + cnst.ESC
@@ -170,8 +170,8 @@ def sep_files_by_pkl_list():
         if c % 1000 == 0:
             print("# files processed:", c)
 
-        # src_path = os.path.join('/home/aduraira/projects/def-wangk/aduraira/pickle_files/', file)
-        src_path = os.path.join('D:\\08_Dataset\\Internal\\mar2020\\pickle_files\\', file)
+        src_path = os.path.join('/home/aduraira/projects/def-wangk/aduraira/pickle_files/', file)
+        # src_path = os.path.join('D:\\08_Dataset\\Internal\\mar2020\\pickle_files\\', file)
         with open(src_path, 'rb') as f:
             cur_pkl = pickle.load(f)
             t1_pkl = {"whole_bytes": cur_pkl["whole_bytes"], "benign": cur_pkl["benign"]}
@@ -212,8 +212,8 @@ def sep_files_by_pkl_list():
             list_idx.append([pe_name, csv.iloc[c-1, 1]])
         c += 1
 
-    # pd.DataFrame(list_idx).to_csv('/home/aduraira/projects/def-wangk/aduraira/Echelon_TF2/data/ds1_pkl.csv', index=False, header=None)
-    pd.DataFrame(list_idx).to_csv('D:\\03_GitWorks\\Echelon_TF2\\data\\xs_idx_pkl.csv', index=False, header=None)
+    pd.DataFrame(list_idx).to_csv('/home/aduraira/projects/def-wangk/aduraira/Echelon_TF2/data/ds1_pkl.csv', index=False, header=None)
+    # pd.DataFrame(list_idx).to_csv('D:\\03_GitWorks\\Echelon_TF2\\data\\xs_idx_pkl.csv', index=False, header=None)
 
 
 def copy_files(src_path, dst_path, ext, max_size):
@@ -290,16 +290,16 @@ def collect_sha():
 
 
 if __name__ == '__main__':
-    src_path = "D:\\08_Dataset\\VirusTotal\\repo\\all"
-    dst_path = "D:\\08_Dataset\\aug24_malware\\"
+    # src_path = "D:\\08_Dataset\\VirusTotal\\repo\\all"
+    # dst_path = "D:\\08_Dataset\\aug24_malware\\"
 
-    ext = '*.exe'
-    max_size = 512000  # bytes 500KB
+    # ext = '*.exe'
+    # max_size = 512000  # bytes 500KB
     max_files = 110000
     # total_count, total_size = copy_files(src_path, dst_path, ext, max_size)
 
-    sep_files_by_pkl_list()
-    #collect_sha()
+    # sep_files_by_pkl_list()
+    # collect_sha()
     '''
 
     # group_files_by_pkl_list()
