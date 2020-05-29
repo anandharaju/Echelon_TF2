@@ -14,9 +14,9 @@ TIER1_PRETRAINED_MODEL = "ember_malconv.h5"
 TIER2_PRETRAINED_MODEL = "ember_malconv.h5"
 BENIGN = 0
 MALWARE = 1
-T1_TRAIN_BATCH_SIZE = 216
-T2_TRAIN_BATCH_SIZE = 64
-PREDICT_BATCH_SIZE = 248
+T1_TRAIN_BATCH_SIZE = 128  # 216
+T2_TRAIN_BATCH_SIZE = 128  # 64
+PREDICT_BATCH_SIZE = 128  # 248
 
 T1_VERBOSE = VERBOSE_1
 T2_VERBOSE = VERBOSE_1
@@ -39,7 +39,7 @@ VAL_SET_SIZE = 0.2
 TST_SET_SIZE = 0.3
 
 EPOCHS = 10
-EARLY_STOPPING_PATIENCE = 2
+EARLY_STOPPING_PATIENCE = 1
 # TIER-1
 TIER1 = "TIER1"
 TIER1_EPOCHS = 1
@@ -84,7 +84,7 @@ USE_POOLING_LAYER = True
 PROJECT_BASE_PATH = '/home/aduraira/projects/def-wangk/aduraira/' + PROJECT_ROOT if LINUX_ENV else 'D:\\03_GitWorks\\'+PROJECT_ROOT
 DATA_SOURCE_PATH = '/home/aduraira/projects/def-wangk/aduraira/partitions/' if LINUX_ENV else 'D:\\08_Dataset\\Internal\\mar2020\\partitions\\xs_partition\\'
 PKL_SOURCE_PATH = '/home/aduraira/projects/def-wangk/aduraira/pickles/' if LINUX_ENV else 'D:\\08_Dataset\\Internal\\mar2020\\pickles\\'
-ALL_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'ds1_idx_pkl.csv'  # 'balanced_pkl.csv'  # small_pkl_1_1.csv'
+ALL_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'ds1_idx_pkl_truncated.csv'  # 'balanced_pkl.csv'  # small_pkl_1_1.csv'
 BENIGN_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'medium_benign_pkl.csv'
 MALWARE_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'medium_malware_pkl.csv'
 TRAINING_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'training.csv'
@@ -111,7 +111,7 @@ MODEL_PATH = PROJECT_BASE_PATH + ESC + 'model' + ESC  # help="model to resume"
 # FEATURE MAP VISUALIZATION
 # #####################################################################################################################
 LAYER_NUM_TO_STUNT = 4 # 6 for echelon
-PERCENTILES = [92, 94]
+PERCENTILES = [88, 92, 94]
 RUN_FOLDS = [0]
 
 COMBINED_FEATURE_MAP_STATS_FILE = PROJECT_BASE_PATH + ESC + 'out' + ESC + 'result' + ESC + 'combined_stats.csv'

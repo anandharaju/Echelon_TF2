@@ -18,7 +18,7 @@ import os
 def predict_byte(model, partition, xfiles, args):
     xlen = len(xfiles)
     pred_steps = xlen//args.batch_size if xlen % args.batch_size == 0 else xlen//args.batch_size + 1
-    pred = model.predict_generator(
+    pred = model.predict(
         utils.data_generator(partition, xfiles, np.ones(xfiles.shape), args.max_len, args.batch_size, shuffle=False),
         steps=pred_steps,
         verbose=args.verbose
@@ -29,7 +29,7 @@ def predict_byte(model, partition, xfiles, args):
 def predict_byte_by_section(model, spartition, xfiles, q_sections, section_map, args):
     xlen = len(xfiles)
     pred_steps = xlen//args.batch_size if xlen % args.batch_size == 0 else xlen//args.batch_size + 1
-    pred = model.predict_generator(
+    pred = model.predict(
         utils.data_generator_by_section(spartition, q_sections, section_map, xfiles, np.ones(xfiles.shape), args.max_len, args.batch_size, shuffle=False),
         steps=pred_steps,
         verbose=args.verbose

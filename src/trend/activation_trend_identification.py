@@ -171,10 +171,9 @@ def get_feature_maps(smodel, partition, files):
     return raw_feature_maps
 
 
-def process_files(args, sd):
+def process_files(stunted_model, args, sd):
     unprocessed = 0
     samplewise_feature_maps = []
-    stunted_model = get_stunted_model(args)
     files = args.t2_x_train
     files_type = args.t2_y_train
 
@@ -183,7 +182,6 @@ def process_files(args, sd):
     # file_type = pObj_fmap.ytrue[i]  # Using Ground Truth to get trend of actual benign and malware files
     # file_whole_bytes = {file[:-4]: args.whole_b1_train_partition[file[:-4]]}
     raw_feature_maps = get_feature_maps(stunted_model, args.whole_b1_train_partition, files)
-    del stunted_model
     del args.whole_b1_train_partition
     gc.collect()
 
@@ -333,6 +331,7 @@ def save_activation_trend(sd):
 
 
 def start_ati_process(args, fold_index, partition_count, sd):
+    stunted_model = get_stunted_model(args)
     for pcount in range(0, partition_count):
         print("ATI for partition:", pcount)
         b1datadf = pd.read_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + "b1_train_" + str(fold_index) + "_p" + str(pcount) + ".csv", header=None)
@@ -340,7 +339,9 @@ def start_ati_process(args, fold_index, partition_count, sd):
         args.whole_b1_train_partition = get_partition_data("b1_train", fold_index, pcount, "t1")
         args.section_b1_train_partition = get_partition_data("b1_train", fold_index, pcount, "t2")
 
-        sd = process_files(args, sd)
+        sd = process_files(stunted_model, args, sd)
+    del stunted_model
+    gc.collect()
     return sd
 
 

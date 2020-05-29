@@ -74,7 +74,7 @@ def train_by_section(args):
 
     # Check MAX_LEN modification is needed - based on proportion of section vs whole file size
     # args.max_len = cnst.MAX_FILE_SIZE_LIMIT + (cnst.CONV_WINDOW_SIZE * len(args.q_sections))
-    data_gen = utils.data_generator_by_section(args.whole_b1_train_partition, args.section_b1_train_partition, args.q_sections, args.train_section_map, args.t2_x_train, args.t2_y_train, args.t2_max_len, args.t2_batch_size, args.t2_shuffle)
+    data_gen = utils.data_generator_by_section(args.section_b1_train_partition, args.q_sections, args.train_section_map, args.t2_x_train, args.t2_y_train, args.t2_max_len, args.t2_batch_size, args.t2_shuffle)
     history = args.t2_model_base.fit(
         data_gen,
         # class_weight=args.t2_class_weights,
