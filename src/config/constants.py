@@ -43,7 +43,7 @@ EARLY_STOPPING_PATIENCE = 1
 # TIER-1
 TIER1 = "TIER1"
 TIER1_EPOCHS = 1
-TIER1_TARGET_FPR = 0.1
+TIER1_TARGET_FPR = 0.5
 
 SKIP_ENTIRE_TRAINING = False
 ONLY_TIER1_TRAINING = False
@@ -61,7 +61,7 @@ TIER2 = "TIER2"
 TIER2_EPOCHS = 1
 TIER2_TARGET_FPR = 0
 
-OVERALL_TARGET_FPR = 0.1
+OVERALL_TARGET_FPR = 0.5
 #####################################################################################
 
 # CROSS VALIDATION
