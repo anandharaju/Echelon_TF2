@@ -98,10 +98,11 @@ def train_predict(model_idx, dataset_path=None):
     print("Total Partition:", m_pcount, "\t\t\tTrain:", trn_pcount, "Val:", val_pcount, "Test:", tst_pcount)
 
     for fold_index in range(cnst.CV_FOLDS):
-        tst_partitions = np.arange(tst_pcount) + (fold_index * tst_pcount)
+        tst_partitions = (np.arange(tst_pcount) + (fold_index * tst_pcount)) % m_pcount
         trn_val_partitions = [x for x in range(m_pcount) if x not in tst_partitions]
-        val_partitions = trn_val_partitions[-1*val_pcount:]
+        val_partitions = random.sample(trn_val_partitions, val_pcount)
         trn_partitions = [x for x in trn_val_partitions if x not in val_partitions]
+        print("train", trn_partitions, "val", val_partitions, "test", tst_partitions)
         pd.DataFrame([{"train": trn_partitions, "val": val_partitions, "test": tst_partitions}]).to_csv(os.path.join(cnst.DATA_SOURCE_PATH, "partition_tracker_" + str(fold_index) + ".csv"), index=False)
 
         print("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> [ CV-FOLD " + str(fold_index + 1) + "/" + str(cnst.CV_FOLDS) + " ]", "Training: " + str(len(trn_partitions)), "Validation: " + str(len(val_partitions)), "Testing: " + str(len(tst_partitions)))

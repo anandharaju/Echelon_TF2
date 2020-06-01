@@ -25,8 +25,8 @@ def partition_pkl_files_by_size(type, fold, files, labels):
     end = 0
 
     for i, file in enumerate(files):  # iloc[:, 0]:
-        t1_pkl_src_path = os.path.join(cnst.PKL_SOURCE_PATH + cnst.ESC + "t1" + cnst.ESC, file)
-        t2_pkl_src_path = os.path.join(cnst.PKL_SOURCE_PATH + cnst.ESC + "t2" + cnst.ESC, file)
+        t1_pkl_src_path = os.path.join(cnst.PKL_SOURCE_PATH + "t1" + cnst.ESC, file)
+        t2_pkl_src_path = os.path.join(cnst.PKL_SOURCE_PATH + "t2" + cnst.ESC, file)
 
         t1_src_file_size = os.stat(t1_pkl_src_path).st_size
         t2_src_file_size = os.stat(t2_pkl_src_path).st_size
@@ -89,8 +89,8 @@ def partition_pkl_files_by_count(type, fold, files, labels):
     end = 0
 
     for i, file in enumerate(files):  # iloc[:, 0]:
-        t1_pkl_src_path = os.path.join(cnst.PKL_SOURCE_PATH + cnst.ESC + "t1" + cnst.ESC, file)
-        t2_pkl_src_path = os.path.join(cnst.PKL_SOURCE_PATH + cnst.ESC + "t2" + cnst.ESC, file)
+        t1_pkl_src_path = os.path.join(cnst.PKL_SOURCE_PATH + "t1" + cnst.ESC, file)
+        t2_pkl_src_path = os.path.join(cnst.PKL_SOURCE_PATH + "t2" + cnst.ESC, file)
 
         if cur_partition_file_count == cnst.MAX_FILES_PER_PARTITION:
             t1_partition_path = os.path.join(cnst.DATA_SOURCE_PATH, partition_label + "t1_p" + str(partition_count))
