@@ -47,48 +47,17 @@ def preprocess_by_section(spartition, file_list, max_len, sections, section_map)
         if fn not in pkeys:
             print(fn, 'not exists in partition')
         else:
-            combined = []
             fjson = spartition[fn]
+            combined = np.zeros(fjson["whole_bytes_size"] if cnst.LINUX_ENV else 2 ** 20)
             try:
                 keys = fjson["section_info"].keys()
-                '''
-                # Update byte map with sections that are present in current file
-                for key in keys:
-                    if key in section_map:
-                        section_byte_map[key] = 1
-                    #else:
-                    #    print("Unknown Section in B1 samples:", key)
-
-                byte_map = []
-                byte_map_input = section_byte_map.values()  # ordered dict preserves the order of byte map
-                for x in byte_map_input:
-                    byte_map.append(x)
-
-                combined = np.concatenate([combined, byte_map, np.zeros(cnst.CONV_WINDOW_SIZE)])
-                '''
-
                 for section in sections:
                     if section in keys:
-                        combined = np.concatenate(
-                            [combined, fjson["section_info"][section]["section_data"], np.zeros(cnst.CONV_WINDOW_SIZE)])
-
-                '''if cnst.TAIL in sections:
-                    whole_bytes = wpartition[fn]["whole_bytes"]
-                    fsize = len(whole_bytes)
-                    sections_end = 0
-                    for key in keys:
-                        if fjson["section_info"][key]['section_bounds']["end_offset"] > sections_end:
-                            sections_end = fjson["section_info"][key]['section_bounds']["end_offset"]
-
-                    if sections_end < 0:
-                        print("[OVERLAY DATA NOT ADDED] Invalid section end found - ", sections_end)
-
-                    if sections_end < fsize - 1:
-                        combined = np.concatenate([combined, whole_bytes[sections_end:fsize], np.zeros(cnst.CONV_WINDOW_SIZE)])
-
-                    if len(combined) > max_len:
-                        print("[CAUTION: LOSS_OF_DATA] Combined sections exceeded max sample length by " + str(len(combined) - max_len) + " bytes. FileSize:"+str(fsize)+" sections_end:"+str(sections_end))
-                '''
+                        # print(np.shape(combined))
+                        start = fjson["section_info"][section]["section_bounds"]["start_offset"]
+                        end = fjson["section_info"][section]["section_bounds"]["end_offset"] + 1
+                        data = fjson["section_info"][section]["section_data"]
+                        combined[start:start+len(data)] = data
                 if len(combined) > max_len:
                     print("[CAUTION: LOSS_OF_DATA] Combined sections exceeded max sample length by " + str(len(combined) - max_len) + " bytes.")
                 corpus.append(combined)
