@@ -47,7 +47,7 @@ def train(args):
     data_gen = utils.data_generator(args.train_partition, args.t1_x_train, args.t1_y_train, args.t1_max_len, args.t1_batch_size, args.t1_shuffle)
     history = args.t1_model_base.fit(
         data_gen,
-        # class_weight=args.t1_class_weights,
+        class_weight=args.t1_class_weights,
         steps_per_epoch=args.t1_train_steps,
         epochs=args.t1_epochs,
         verbose=args.t1_verbose,
@@ -77,7 +77,7 @@ def train_by_section(args):
     data_gen = utils.data_generator_by_section(args.section_b1_train_partition, args.q_sections, args.train_section_map, args.t2_x_train, args.t2_y_train, args.t2_max_len, args.t2_batch_size, args.t2_shuffle)
     history = args.t2_model_base.fit(
         data_gen,
-        # class_weight=args.t2_class_weights,
+        class_weight=args.t2_class_weights,
         steps_per_epoch=len(args.t2_x_train)//args.t2_batch_size + 1,
         epochs=args.t2_epochs,
         verbose=args.t2_verbose,
@@ -238,6 +238,11 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
         mean_trn_acc = []
         mean_val_loss = []
         mean_val_acc = []
+        cwy = []
+        for tp_idx in train_partitions:
+            cwdf = pd.read_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + "p" + str(tp_idx) + ".csv", header=None)
+            cwy = np.concatenate([cwy, cwdf.iloc[:, 1].values])
+        t_args.t1_class_weights = class_weight.compute_class_weight('balanced', np.unique(cwy), cwy)
         for epoch in range(cnst.EPOCHS):  # External Partition Purpose
             print("[OUTER PARTITIONS TIER-1 EPOCH]", epoch+1)
             cur_trn_loss = []
@@ -246,7 +251,7 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
                 print("Tier-1 Training over partition index:", tp_idx)
                 tr_datadf = pd.read_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + "p" + str(tp_idx) + ".csv", header=None)
                 t_args.t1_x_train, t_args.t1_x_val, t_args.t1_y_train, t_args.t1_y_val = tr_datadf.iloc[:, 0].values, None, tr_datadf.iloc[:, 1].values, None
-                t_args.t1_class_weights = class_weight.compute_class_weight('balanced', np.unique(t_args.t1_y_train), t_args.t1_y_train)  # Class Imbalance Tackling - Setting class weights
+                # t_args.t1_class_weights = class_weight.compute_class_weight('balanced', np.unique(t_args.t1_y_train), t_args.t1_y_train)
                 t_args.train_partition = get_partition_data(None, None, tp_idx, "t1")
                 t_history = train_tier1(t_args)
                 cur_trn_loss.append(t_history.history['accuracy'][0])
@@ -411,6 +416,7 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
     best_t2_model = None
     predict_args = DefaultPredictArguments()
 
+    t_args.t2_class_weights = class_weight.compute_class_weight('balanced', np.unique(train_b1data_all_df.iloc[:, 1]), train_b1data_all_df.iloc[:, 1])  # Class Imbalance Tackling - Setting class weights
     qstats = QStats(cnst.PERCENTILES, q_sections_by_q_criteria.keys(), q_sections_by_q_criteria.values())
     for q_criterion in q_sections_by_q_criteria:
         # TIER-2 TRAINING & PREDICTION OVER B1 DATA for current set of q_sections
@@ -438,7 +444,6 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
                     t_args.t2_x_train, t_args.t2_y_train = b1traindatadf.iloc[:, 0], b1traindatadf.iloc[:, 1]
                     t_args.whole_b1_train_partition = get_partition_data("b1_train", fold_index, pcount, "t1")
                     t_args.section_b1_train_partition = get_partition_data("b1_train", fold_index, pcount, "t2")
-                    t_args.t2_class_weights = class_weight.compute_class_weight('balanced', np.unique(b1traindatadf.iloc[:, 1]), b1traindatadf.iloc[:, 1])  # Class Imbalance Tackling - Setting class weights
 
                     t2_history = train_tier2(t_args)
 
