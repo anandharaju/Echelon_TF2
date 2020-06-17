@@ -96,7 +96,7 @@ def train_predict(model_idx, dataset_path=None):
     trn_pcount = m_pcount - (tst_pcount + val_pcount)
 
     print("Total Partition:", m_pcount, "\t\t\tTrain:", trn_pcount, "Val:", val_pcount, "Test:", tst_pcount)
-
+    cv_obj = cv_info()
     for fold_index in range(cnst.CV_FOLDS):
         tst_partitions = (np.arange(tst_pcount) + (fold_index * tst_pcount)) % m_pcount
         trn_val_partitions = [x for x in range(m_pcount) if x not in tst_partitions]
@@ -120,7 +120,7 @@ def train_predict(model_idx, dataset_path=None):
             continue
         print("**********************  PREDICTION TIER 1&2 - STARTED  ************************")
         cpt = time.time()
-        cv_obj = cv_info()
+
         pred_cv_obj = predict.init(model_idx, tst_partitions, cv_obj, fold_index)
         if pred_cv_obj is not None:
             cv_obj = pred_cv_obj
