@@ -30,6 +30,7 @@ from analyzers.collect_exe_files import get_partition_data, partition_pkl_files_
 import gc
 from keras import backend as K
 from numba import cuda
+from shutil import copyfile
 
 
 def train(args):
@@ -281,15 +282,31 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
             print("Current Epoch Loss:", mean_val_loss[epoch], "Current Epoch Acc:", mean_val_acc[epoch])
             if mean_val_loss[epoch] < best_val_loss:
                 best_val_loss = mean_val_loss[epoch]
-                # save_model(model, filename)
+                try:
+                    copyfile(join(t_args.save_path, t_args.t1_model_name),
+                             join(t_args.save_path, t_args.t1_best_model_name))
+                except Exception as e:
+                    print("Saving EPOCH level best model failed for Tier1 - ", str(e))
                 epochs_since_best = 0
                 print("Updating best loss:", best_val_loss)
             else:
                 epochs_since_best += 1
                 print('{} epochs passed since best val loss of '.format(epochs_since_best), best_val_loss)
-                if 0 < cnst.EARLY_STOPPING_PATIENCE <= epochs_since_best:
-                    print('Triggering early stopping as no improvement found since last {} epochs!'.format(epochs_since_best), "Best Loss:", best_val_loss, "\n\n")
+                if cnst.EARLY_STOPPING_PATIENCE <= epochs_since_best:
+                    print('Triggering early stopping as no improvement found since last {} epochs!'.format(
+                        epochs_since_best), "Best Loss:", best_val_loss, "\n\n")
+                    try:
+                        copyfile(join(t_args.save_path, t_args.t1_best_model_name),
+                                 join(t_args.save_path, t_args.t1_model_name))
+                    except Exception as e:
+                        print("Retrieving EPOCH level best model failed for Tier1 - ", str(e))
                     break
+            if epoch + 1 == cnst.EPOCHS:
+                try:
+                    copyfile(join(t_args.save_path, t_args.t1_best_model_name),
+                             join(t_args.save_path, t_args.t1_model_name))
+                except Exception as e:
+                    print("Retrieving EPOCH level best model failed for Tier1 - ", str(e))
         del t_args.t1_model_base
         gc.collect()
         plot_partition_epoch_history(mean_trn_acc, mean_val_acc, mean_trn_loss, mean_val_loss, "Tier1")
@@ -475,18 +492,36 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
                 mean_val_loss.append(np.mean(cur_val_loss))
                 mean_val_acc.append(np.mean(cur_val_acc))
 
-                print("Current Tier-2 Epoch Loss:", mean_val_loss[epoch], "Current Tier-2 Epoch Acc:", mean_val_acc[epoch])
+                print("Current Tier-2 Epoch Loss:", mean_val_loss[epoch], "Current Tier-2 Epoch Acc:",
+                      mean_val_acc[epoch])
                 if mean_val_loss[epoch] < best_val_loss:
                     best_val_loss = mean_val_loss[epoch]
-                    # save_model(model, filename)
+                    try:
+                        copyfile(join(t_args.save_path, t_args.t2_model_name),
+                                 join(t_args.save_path, t_args.t2_best_model_name))
+                    except Exception as e:
+                        print("Saving EPOCH level best model failed for Tier2 - ", str(e))
                     epochs_since_best = 0
                     print("Updating best loss:", best_val_loss)
                 else:
                     epochs_since_best += 1
                     print('{} epochs passed since best val loss of '.format(epochs_since_best), best_val_loss)
-                    if 0 < cnst.EARLY_STOPPING_PATIENCE <= epochs_since_best:
-                        print('Tier-2 Triggering early stopping as no improvement found since last {} epochs!'.format(epochs_since_best), "Best Loss:", best_val_loss, "\n\n")
+                    if cnst.EARLY_STOPPING_PATIENCE <= epochs_since_best:
+                        print('Tier-2 Triggering early stopping as no improvement found since last {} epochs!'.format(
+                            epochs_since_best), "Best Loss:", best_val_loss, "\n\n")
+                        try:
+                            copyfile(join(t_args.save_path, t_args.t2_best_model_name),
+                                     join(t_args.save_path, t_args.t2_model_name))
+                        except Exception as e:
+                            print("Retrieving EPOCH level best model failed for Tier2 - ", str(e))
                         break
+
+                if epoch + 1 == cnst.EPOCHS:
+                    try:
+                        copyfile(join(t_args.save_path, t_args.t2_best_model_name),
+                                 join(t_args.save_path, t_args.t2_model_name))
+                    except Exception as e:
+                        print("Retrieving EPOCH level best model failed for Tier2 - ", str(e))
             del t_args.t2_model_base
             gc.collect()
             plot_partition_epoch_history(mean_trn_acc, mean_val_acc, mean_trn_loss, mean_val_loss, "Tier2"+str(q_criterion)[:4])
