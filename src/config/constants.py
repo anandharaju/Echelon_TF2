@@ -35,8 +35,8 @@ PROJECT_ROOT = os.getcwdb().decode("utf-8").split("/")[-2] if LINUX_ENV else os.
 USE_PRETRAINED_FOR_TIER1 = True  # True:Malconv False:Echelon
 USE_PRETRAINED_FOR_TIER2 = True
 PERFORM_B2_BOOSTING = True
-VAL_SET_SIZE = 0.2
-TST_SET_SIZE = 0.3
+VAL_SET_SIZE = 0.3
+TST_SET_SIZE = 0.2
 
 EPOCHS = 10
 EARLY_STOPPING_PATIENCE = 1

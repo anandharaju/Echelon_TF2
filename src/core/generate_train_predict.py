@@ -92,15 +92,16 @@ def train_predict(model_idx, dataset_path=None):
         m_pcount = pd.read_csv(os.path.join(cnst.DATA_SOURCE_PATH, "master_partition_tracker.csv"))["master"][0]
 
     tst_pcount = int(round(m_pcount * cnst.TST_SET_SIZE))
-    val_pcount = int(round((m_pcount - tst_pcount) * cnst.VAL_SET_SIZE))
-    trn_pcount = m_pcount - (tst_pcount + val_pcount)
+    tst_partitions = list(range(m_pcount-1, m_pcount-tst_pcount-1, -1))
+    m_pcount -= tst_pcount
+    val_pcount = int(round(m_pcount * cnst.VAL_SET_SIZE))
+    trn_pcount = m_pcount - val_pcount
 
     print("Total Partition:", m_pcount, "\t\t\tTrain:", trn_pcount, "Val:", val_pcount, "Test:", tst_pcount)
     cv_obj = cv_info()
     for fold_index in range(cnst.CV_FOLDS):
-        tst_partitions = (np.arange(tst_pcount) + (fold_index * tst_pcount)) % m_pcount
-        trn_val_partitions = [x for x in range(m_pcount) if x not in tst_partitions]
-        val_partitions = random.sample(trn_val_partitions, val_pcount)
+        trn_val_partitions = [x for x in range(m_pcount)]
+        val_partitions = (np.arange(val_pcount) + (fold_index * val_pcount)) % m_pcount
         trn_partitions = [x for x in trn_val_partitions if x not in val_partitions]
         print("train", trn_partitions, "val", val_partitions, "test", tst_partitions)
         pd.DataFrame([{"train": trn_partitions, "val": val_partitions, "test": tst_partitions}]).to_csv(os.path.join(cnst.DATA_SOURCE_PATH, "partition_tracker_" + str(fold_index) + ".csv"), index=False)

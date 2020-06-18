@@ -226,6 +226,9 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
     t_args.t1_model_name = cnst.TIER1_MODELS[model_idx] + "_" + str(fold_index) + ".h5"
     t_args.t2_model_name = cnst.TIER2_MODELS[model_idx] + "_" + str(fold_index) + ".h5"
 
+    t_args.t1_best_model_name = cnst.TIER1_MODELS[model_idx] + "_" + str(fold_index) + "_best.h5"
+    t_args.t2_best_model_name = cnst.TIER2_MODELS[model_idx] + "_" + str(fold_index) + "_best.h5"
+
     # print("######################################   TRAINING TIER-1  ###############################################")
     # partition_tracker_df = pd.read_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + "partition_tracker_"+str(fold_index)+".csv")
 
