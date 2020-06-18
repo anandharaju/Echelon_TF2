@@ -286,8 +286,7 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
             if mean_val_loss[epoch] < best_val_loss:
                 best_val_loss = mean_val_loss[epoch]
                 try:
-                    copyfile(join(t_args.save_path, t_args.t1_model_name),
-                             join(t_args.save_path, t_args.t1_best_model_name))
+                    copyfile(join(t_args.save_path, t_args.t1_model_name), join(t_args.save_path, t_args.t1_best_model_name))
                 except Exception as e:
                     print("Saving EPOCH level best model failed for Tier1 - ", str(e))
                 epochs_since_best = 0
@@ -296,18 +295,15 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
                 epochs_since_best += 1
                 print('{} epochs passed since best val loss of '.format(epochs_since_best), best_val_loss)
                 if cnst.EARLY_STOPPING_PATIENCE <= epochs_since_best:
-                    print('Triggering early stopping as no improvement found since last {} epochs!'.format(
-                        epochs_since_best), "Best Loss:", best_val_loss, "\n\n")
+                    print('Triggering early stopping as no improvement found since last {} epochs!'.format(epochs_since_best), "Best Loss:", best_val_loss, "\n\n")
                     try:
-                        copyfile(join(t_args.save_path, t_args.t1_best_model_name),
-                                 join(t_args.save_path, t_args.t1_model_name))
+                        copyfile(join(t_args.save_path, t_args.t1_best_model_name), join(t_args.save_path, t_args.t1_model_name))
                     except Exception as e:
                         print("Retrieving EPOCH level best model failed for Tier1 - ", str(e))
                     break
             if epoch + 1 == cnst.EPOCHS:
                 try:
-                    copyfile(join(t_args.save_path, t_args.t1_best_model_name),
-                             join(t_args.save_path, t_args.t1_model_name))
+                    copyfile(join(t_args.save_path, t_args.t1_best_model_name), join(t_args.save_path, t_args.t1_model_name))
                 except Exception as e:
                     print("Retrieving EPOCH level best model failed for Tier1 - ", str(e))
         del t_args.t1_model_base
@@ -416,12 +412,12 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
     # print("Train section map:\n", t_args.train_section_map)
 
     print("************************ TIER 2 TRAINING - STARTED ****************************       # Samples:", len(train_b1data_all_df.iloc[:, 0]))
-    if cnst.DO_SUBSAMPLING:
+    '''if cnst.DO_SUBSAMPLING:
         ben_idx = t_args.t2_y_train.index[t_args.t2_y_train == cnst.BENIGN].tolist()
         mal_idx = t_args.t2_y_train.index[t_args.t2_y_train == cnst.MALWARE].tolist()
         t_args.t2_x_train = pd.concat([t_args.t2_x_train.loc[random.sample(ben_idx, len(mal_idx))], t_args.t2_x_train.loc[mal_idx]], ignore_index=True)
         t_args.t2_y_train = pd.concat([t_args.t2_y_train.loc[random.sample(ben_idx, len(mal_idx))], t_args.t2_y_train.loc[mal_idx]], ignore_index=True)
-        print("Sub-sampling complete for Tier-2 training data")
+        print("Sub-sampling complete for Tier-2 training data")'''
 
     # Need to decide the TRAIN:VAL ratio for tier2
     t_args.t2_x_val, t_args.t2_y_val = None, None

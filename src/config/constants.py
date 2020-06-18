@@ -14,9 +14,9 @@ TIER1_PRETRAINED_MODEL = "ember_malconv.h5"
 TIER2_PRETRAINED_MODEL = "ember_malconv.h5"
 BENIGN = 0
 MALWARE = 1
-T1_TRAIN_BATCH_SIZE = 128  # 216
-T2_TRAIN_BATCH_SIZE = 128  # 64
-PREDICT_BATCH_SIZE = 128  # 248
+T1_TRAIN_BATCH_SIZE = 64  # 216
+T2_TRAIN_BATCH_SIZE = 64  # 64
+PREDICT_BATCH_SIZE = 64  # 248
 
 T1_VERBOSE = VERBOSE_1
 T2_VERBOSE = VERBOSE_1
@@ -38,20 +38,20 @@ PERFORM_B2_BOOSTING = True
 VAL_SET_SIZE = 0.3
 TST_SET_SIZE = 0.2
 
-EPOCHS = 10
+EPOCHS = 30
 EARLY_STOPPING_PATIENCE = 1
 # TIER-1
 TIER1 = "TIER1"
 TIER1_EPOCHS = 1
-TIER1_TARGET_FPR = 0.5
+TIER1_TARGET_FPR = OVERALL_TARGET_FPR = 0.9
 
 SKIP_ENTIRE_TRAINING = False
 ONLY_TIER1_TRAINING = False
 
-SKIP_TIER1_TRAINING = False
-SKIP_TIER1_VALIDATION = False           # Generates Val B1
-SKIP_TIER1_TRAINING_PRED = False        # Generates Train B1
-SKIP_ATI_PROCESSING = False
+SKIP_TIER1_TRAINING = True
+SKIP_TIER1_VALIDATION = True           # Generates Val B1
+SKIP_TIER1_TRAINING_PRED = True        # Generates Train B1
+SKIP_ATI_PROCESSING = True
 
 SKIP_TIER2_TRAINING = False
 
@@ -60,8 +60,6 @@ SKIP_TIER2_TRAINING = False
 TIER2 = "TIER2"
 TIER2_EPOCHS = 1
 TIER2_TARGET_FPR = 0
-
-OVERALL_TARGET_FPR = 0.5
 #####################################################################################
 
 # CROSS VALIDATION
@@ -111,8 +109,12 @@ MODEL_PATH = PROJECT_BASE_PATH + ESC + 'model' + ESC  # help="model to resume"
 # FEATURE MAP VISUALIZATION
 # #####################################################################################################################
 LAYER_NUM_TO_STUNT = 4 # 6 for echelon
-PERCENTILES = [75, 80, 85, 90, 91, 92, 93, 94, 95, 96]
-RUN_FOLDS = [0]
+PERCENTILES = [75, 80, 85, 88, 90, 92, 94]
+RUN_FOLDS = [0, 1, 2, 3, 4, 5]
+try:
+    RUN_FOLDS = [int(sys.argv[1])-1]
+except:
+    print("No fold index passed through CLI. Running all folds")
 
 COMBINED_FEATURE_MAP_STATS_FILE = PROJECT_BASE_PATH + ESC + 'out' + ESC + 'result' + ESC + 'combined_stats.csv'
 COMMON_COMBINED_FEATURE_MAP_STATS_FILE = PROJECT_BASE_PATH + ESC + 'out' + ESC + 'result' + ESC + 'combined_stats_common.csv'
