@@ -52,7 +52,7 @@ def train(args):
         steps_per_epoch=args.t1_train_steps,
         epochs=args.t1_epochs,
         verbose=args.t1_verbose,
-        # callbacks=[args.t1_ear, args.t1_mcp]
+        callbacks=[args.t1_ear, args.t1_mcp]
         # , validation_data=utils.data_generator(args.t1_x_val, args.t1_y_val, args.t1_max_len, args.t1_batch_size,
         # args.t1_shuffle) , validation_steps=val_steps
     )
@@ -82,7 +82,7 @@ def train_by_section(args):
         steps_per_epoch=len(args.t2_x_train)//args.t2_batch_size + 1,
         epochs=args.t2_epochs,
         verbose=args.t2_verbose,
-        # callbacks=[args.t2_ear, args.t2_mcp]
+        callbacks=[args.t2_ear, args.t2_mcp]
         # , validation_data=utils.data_generator_by_section(args.q_sections, args.t2_x_val, args.t2_y_val
         # , args.t2_max_len, args.t2_batch_size, args.t2_shuffle)
         # , validation_steps=args.val_steps
@@ -435,6 +435,7 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
     t_args.t2_class_weights = class_weight.compute_class_weight('balanced', np.unique(train_b1data_all_df.iloc[:, 1]), train_b1data_all_df.iloc[:, 1])  # Class Imbalance Tackling - Setting class weights
     qstats = QStats(cnst.PERCENTILES, q_sections_by_q_criteria.keys(), q_sections_by_q_criteria.values())
     for q_criterion in q_sections_by_q_criteria:
+        cnst.USE_PRETRAINED_FOR_TIER2 = True
         # TIER-2 TRAINING & PREDICTION OVER B1 DATA for current set of q_sections
         if not cnst.SKIP_TIER2_TRAINING:
             t_args.t2_model_base = get_model2(t_args)
@@ -586,9 +587,11 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
         print("Best Model not available to save - ", str(e))
 
     print("Percentile\t#Sections\tQ-Criterion\tTHD\t\tFPR\t\tTPR\t\t[TPR-FPR]")
-    for i,p in enumerate(cnst.PERCENTILES):
-        print(str(qstats.percentiles[i])+"\t\t"+str(len(list(qstats.sections)[i]))+"\t\t{:6.6f}\t{:6.2f}\t\t{:6.2f}\t\t{:6.2f}\t\t{:6.2f}".format(list(qstats.qcriteria)[i], qstats.thds[i], qstats.fprs[i], qstats.tprs[i], qstats.tprs[i]-qstats.fprs[i]))
-
+    try:
+        for i,p in enumerate(cnst.PERCENTILES):
+            print(str(qstats.percentiles[i])+"\t\t"+str(len(list(qstats.sections)[i]))+"\t\t{:6.6f}\t{:6.2f}\t\t{:6.2f}\t\t{:6.2f}\t\t{:6.2f}".format(list(qstats.qcriteria)[i], qstats.thds[i], qstats.fprs[i], qstats.tprs[i], qstats.tprs[i]-qstats.fprs[i]))
+    except:
+        pass
     # Get the sections that had maximum TPR and low FPR over B1 training data as Final Qualified sections
     print("\n\tBest Q_Criterion:", q_criterion_selected, "Related Q_Sections:", q_sections_selected.values)
 

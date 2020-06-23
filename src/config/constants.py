@@ -35,23 +35,23 @@ PROJECT_ROOT = os.getcwdb().decode("utf-8").split("/")[-2] if LINUX_ENV else os.
 USE_PRETRAINED_FOR_TIER1 = True  # True:Malconv False:Echelon
 USE_PRETRAINED_FOR_TIER2 = True
 PERFORM_B2_BOOSTING = True
-VAL_SET_SIZE = 0.3
+VAL_SET_SIZE = 0.2
 TST_SET_SIZE = 0.2
 
-EPOCHS = 30
-EARLY_STOPPING_PATIENCE = 1
+EPOCHS = 3
+EARLY_STOPPING_PATIENCE = 0
 # TIER-1
 TIER1 = "TIER1"
 TIER1_EPOCHS = 1
-TIER1_TARGET_FPR = OVERALL_TARGET_FPR = 0.9
+TIER1_TARGET_FPR = OVERALL_TARGET_FPR = 0.1
 
 SKIP_ENTIRE_TRAINING = False
 ONLY_TIER1_TRAINING = False
 
-SKIP_TIER1_TRAINING = True
-SKIP_TIER1_VALIDATION = True           # Generates Val B1
-SKIP_TIER1_TRAINING_PRED = True        # Generates Train B1
-SKIP_ATI_PROCESSING = True
+SKIP_TIER1_TRAINING = False
+SKIP_TIER1_VALIDATION = False           # Generates Val B1
+SKIP_TIER1_TRAINING_PRED = False        # Generates Train B1
+SKIP_ATI_PROCESSING = False
 
 SKIP_TIER2_TRAINING = False
 
@@ -80,9 +80,9 @@ CONV_STRIDE_SIZE = 500
 MAX_FILE_CONVOLUTED_SIZE = int(MAX_FILE_SIZE_LIMIT / CONV_STRIDE_SIZE)
 USE_POOLING_LAYER = True
 PROJECT_BASE_PATH = '/home/aduraira/projects/def-wangk/aduraira/' + PROJECT_ROOT if LINUX_ENV else 'D:\\03_GitWorks\\'+PROJECT_ROOT
-DATA_SOURCE_PATH = '/home/aduraira/projects/def-wangk/aduraira/partitions/' if LINUX_ENV else 'D:\\08_Dataset\\Internal\\mar2020\\partitions\\xs_partition\\'
+DATA_SOURCE_PATH = '/home/aduraira/projects/def-wangk/aduraira/partitions/ds1_pkl_100_percent/' if LINUX_ENV else 'D:\\08_Dataset\\Internal\\mar2020\\partitions\\xs_partition\\'
 PKL_SOURCE_PATH = '/home/aduraira/projects/def-wangk/aduraira/pickles/' if LINUX_ENV else 'D:\\08_Dataset\\Internal\\mar2020\\pickles\\'
-ALL_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'ds1_pkl_50k_2to3.csv'  # 'balanced_pkl.csv'  # small_pkl_1_1.csv'
+ALL_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'ds1_pkl_100_percent.csv'  # 'ds1_pkl_50k_2to3.csv'  # 'balanced_pkl.csv'  # small_pkl_1_1.csv'
 BENIGN_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'medium_benign_pkl.csv'
 MALWARE_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'medium_malware_pkl.csv'
 TRAINING_FILE = PROJECT_BASE_PATH + ESC + 'data' + ESC + 'training.csv'
@@ -110,7 +110,7 @@ MODEL_PATH = PROJECT_BASE_PATH + ESC + 'model' + ESC  # help="model to resume"
 # #####################################################################################################################
 LAYER_NUM_TO_STUNT = 4 # 6 for echelon
 PERCENTILES = [75, 80, 85, 88, 90, 92, 94]
-RUN_FOLDS = [0, 1, 2, 3, 4, 5]
+RUN_FOLDS = [0, 1, 2, 3, 4]
 try:
     RUN_FOLDS = [int(sys.argv[1])-1]
 except:

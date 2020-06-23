@@ -405,13 +405,12 @@ def init(model_idx, test_partitions, cv_obj, fold_index):
         print(" \n !!!!!      Skipping Tier-2 - B1 set is empty")
         return None
 
-    test_b1_partition_count = partition_pkl_files_by_count("b1_test", fold_index, predict_t1_test_data_all.xB1, predict_t1_test_data_all.yB1) if cnst.PARTITION_BY_COUNT else partition_pkl_files_by_size("b1_test", fold_index, predict_t1_test_data_all.xB1, predict_t1_test_data_all.yB1)
-
     # TIER-2 PREDICTION
-    print("Prediction on Testing Data - TIER2 [B1 data]         # Partitions", test_b1_partition_count)  # \t\t\tSection Map Length:", len(section_map))
-    predict_t2_test_data_all = pObj(cnst.TIER2, None, None, None)
-    predict_t2_test_data_all.thd = thd2
     if thd2 is not None and q_sections is not None:
+        test_b1_partition_count = partition_pkl_files_by_count("b1_test", fold_index, predict_t1_test_data_all.xB1, predict_t1_test_data_all.yB1) if cnst.PARTITION_BY_COUNT else partition_pkl_files_by_size("b1_test", fold_index, predict_t1_test_data_all.xB1, predict_t1_test_data_all.yB1)
+        print("Prediction on Testing Data - TIER2 [B1 data]         # Partitions", test_b1_partition_count)  # \t\t\tSection Map Length:", len(section_map))
+        predict_t2_test_data_all = pObj(cnst.TIER2, None, None, None)
+        predict_t2_test_data_all.thd = thd2
         for pcount in range(0, test_b1_partition_count):
             b1_tst_datadf = pd.read_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + "b1_test_" + str(fold_index) + "_p" + str(pcount) + ".csv", header=None)
 
