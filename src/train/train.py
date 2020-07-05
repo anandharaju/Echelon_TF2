@@ -14,7 +14,7 @@ from keras import optimizers
 from trend import activation_trend_identification as ati
 import config.settings as cnst
 from .train_args import DefaultTrainArguments
-from plots.plots import plot_partition_epoch_history, plot_nn_history
+from plots.plots import plot_partition_epoch_history
 from predict import predict
 from predict.predict_args import Predict as pObj, DefaultPredictArguments, QStats
 import numpy as np
@@ -243,25 +243,6 @@ def get_block_model2(args):
 
     # model2.summary()
     return model2
-
-
-def change_model(model, new_input_shape=(None, cnst.TIER2_NEW_INPUT_SHAPE)):
-    """ Function to transfer weights of pre-trained Malconv to the block based model with reduced input shape.
-        Args:
-            model: An object with required parameters/hyper-parameters for loading, configuring and compiling
-            new_input_shape: a value <= Tier-1 model's input shape. Typically, ( Num of Conv. Filters * Size of Conv. Stride )
-        Returns:
-            new_model: new model with reduced input shape and weights updated
-    """
-    model._layers[0].batch_input_shape = new_input_shape
-    new_model = model_from_json(model.to_json())
-    for layer in new_model.layers:
-        try:
-            layer.set_weights(model.get_layer(name=layer.name).get_weights())
-            logging.info("Loaded and weights set for layer {}".format(layer.name))
-        except Exception as e:
-            logging.exception("Could not transfer weights for layer {}".format(layer.name))
-    return new_model
 
 
 def train_tier1(args):
@@ -644,14 +625,14 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
                     if cnst.EARLY_STOPPING_PATIENCE_TIER2 <= epochs_since_best:
                         logging.info('Tier-2 Triggering early stopping as no improvement found since last {} epochs!    Best Loss:'.format(epochs_since_best, best_val_loss))
                         try:
-                        	copyfile(join(t_args.save_path, t_args.t2_best_model_name), join(t_args.save_path, t_args.t2_model_name))
+                            copyfile(join(t_args.save_path, t_args.t2_best_model_name), join(t_args.save_path, t_args.t2_model_name))
                         except Exception as e:
                             logging.exception("Retrieving EPOCH level best model failed for Tier2.")
                         break
 
                 if epoch + 1 == cnst.EPOCHS:
-        	        try:
-    	                copyfile(join(t_args.save_path, t_args.t2_best_model_name), join(t_args.save_path, t_args.t2_model_name))
+                    try:
+                        copyfile(join(t_args.save_path, t_args.t2_best_model_name), join(t_args.save_path, t_args.t2_model_name))
                     except Exception as e:
                         logging.exception("Retrieving EPOCH level best model failed for Tier2.")
             del t_args.t2_model_base
