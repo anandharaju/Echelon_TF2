@@ -463,7 +463,7 @@ def reconcile(pt1, pt2, cv_obj, fold_index):
     return cv_obj, rfpr
 
 
-def init(model_idx, test_partitions, cv_obj, fold_index, scalers):
+def init(model_idx, test_partitions, cv_obj, fold_index, scalers=None):
     """ Module for performing prediction for Testing phase
         # ##################################################################################################################
         # OBJECTIVES:
@@ -497,7 +497,9 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers):
         return
 
     section_map = None
-    q_sections = pd.read_csv(os.path.join(cnst.PROJECT_BASE_PATH + cnst.ESC + "out" + cnst.ESC + "result" + cnst.ESC, "qualified_sections_" + str(fold_index) + ".csv"), header=None).iloc[0]
+    q_sections = pd.read_csv(os.path.join(cnst.PROJECT_BASE_PATH + cnst.ESC + "out" + cnst.ESC + "result" + cnst.ESC, "qualified_sections_" + str(fold_index) + ".csv"), header=None)[0]
+    q_sections = list(q_sections)
+    logging.info("Number of Q_sections received for prediction: %s", len(q_sections))
 
     predict_t1_test_data_all = pObj(cnst.TIER2, None, None, None)
     predict_t1_test_data_all.thd = thd1
@@ -598,9 +600,9 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers):
         p_args.t1_model_name = cnst.TIER1_MODELS[model_idx] + "_" + str(fold_index) + ".h5"
         p_args.t2_model_name = cnst.TIER2_MODELS[model_idx] + "_" + str(fold_index) + ".h5"
 
-        if not cnst.SKIP_TIER1_PREDICTION:
-            logging.info("Collecting Block Data for fold-%s partitions-%s type-%s", fold_index, test_b1_partition_count, "test")
-            ati.collect_b1_block_dataset(p_args, fold_index, test_b1_partition_count, "test")
+        #if not cnst.SKIP_TIER1_PREDICTION:
+        #    logging.info("Collecting Block Data for fold-%s partitions-%s type-%s", fold_index, test_b1_partition_count, "test")
+        #    ati.collect_b1_block_dataset(p_args, fold_index, test_b1_partition_count, "test")
 
         logging.info("Retrieving stored B1 Data for Block Prediction with selected THD2")
         '''p_args.t2_nn_model = load_model(cnst.MODEL_PATH + "nn_t2_" + str(fold_index) + ".h5")
@@ -673,10 +675,10 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers):
         predict_t2_test_data_all.yprob[still_benign_indices] = predict_t1_test_data_all.yprobB1[still_benign_indices]  # Assign Tier-1 probabilities for samples that are still benign to avoid AUC conflict
 
         new_tp_indices = np.where(np.all([predict_t2_test_data_all.ytrue.ravel() == cnst.MALWARE, predict_t2_test_data_all.ypred.ravel() == cnst.MALWARE], axis=0))[0]
-        #predict_t2_test_data_all.yprob[new_tp_indices] -= predict_t2_test_data_all.yprob[new_tp_indices] + 1
+        predict_t2_test_data_all.yprob[new_tp_indices] -= predict_t2_test_data_all.yprob[new_tp_indices] + 1
 
         new_fp_indices = np.where(np.all([predict_t2_test_data_all.ytrue.ravel() == cnst.BENIGN, predict_t2_test_data_all.ypred.ravel() == cnst.MALWARE], axis=0))[0]
-        predict_t2_test_data_all.yprob[new_fp_indices] = predict_t1_test_data_all.yprob[new_fp_indices]
+        predict_t2_test_data_all.yprob[new_fp_indices] -= predict_t2_test_data_all.yprob[new_fp_indices]
 
         cvobj, benchmark_fpr = reconcile(predict_t1_test_data_all, predict_t2_test_data_all, cv_obj, fold_index)
         # benchmark_tier1(model_idx, predict_t1_test_data, fold_index, benchmark_fpr)

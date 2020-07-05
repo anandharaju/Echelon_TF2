@@ -13,7 +13,7 @@ from plots.plots import plot_vars as pv
 from sklearn.model_selection import StratifiedKFold, train_test_split
 import random
 from datetime import datetime
-from plots.auc import plot_cv_auc
+from plots.auc_seaborn import plot_cv_auc
 from plots.auc import cv as cv_info
 from collections import OrderedDict
 import os

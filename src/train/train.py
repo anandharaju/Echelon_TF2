@@ -701,7 +701,7 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
         best_t2_model.save(cnst.MODEL_PATH + cnst.TIER2_MODELS[model_idx] + "_" + str(fold_index) + ".h5")
         # best_t2_nn_model.save(cnst.MODEL_PATH + "nn_t2_" + str(fold_index) + ".h5")
 
-        logging.info("Best Q_Criterion: %s\nRelated Q_Sections: %s", q_criterion_selected, q_sections_selected.values)
+        logging.info("Best Q_Criterion: %s\nRelated Q_Sections: %s", q_criterion_selected, len(q_sections_selected.values))
         logging.info("************************ TIER 2 TRAINING - ENDED   ****************************")
         pd.DataFrame([{"thd1": max_val_thd1, "thd2": thd2, "boosting_bound": min_val_boosting_bound}]).to_csv(
             os.path.join(cnst.PROJECT_BASE_PATH + cnst.ESC + "out" + cnst.ESC + "result" + cnst.ESC, "training_outcomes_" + str(fold_index) + ".csv"), index=False)
