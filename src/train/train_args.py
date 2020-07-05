@@ -1,4 +1,4 @@
-import config.constants as cnst
+import config.settings as cnst
 
 
 class DefaultTrainArguments:

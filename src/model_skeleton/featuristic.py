@@ -2,6 +2,7 @@ from keras.models import Model, Sequential
 from keras import optimizers
 from keras.layers import Dense, Embedding, Conv1D, multiply, GlobalMaxPool1D, Input, Activation
 # from sklearn.model_selection import GridSearchCV
+from config import settings as cnst
 
 
 '''

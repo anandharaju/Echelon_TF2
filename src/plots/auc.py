@@ -1,6 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import config.constants as cnst
+import config.settings as cnst
 import numpy as np
 
 # aucdf = pd.read_csv('aucmalconv.csv', header=None)

@@ -4,7 +4,6 @@
 
 import pefile
 import logging
-from config import constants as cnst
 
 '''def parse_pe(file):
     pe = pefile.PE(file)

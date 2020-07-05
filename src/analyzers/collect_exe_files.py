@@ -2,9 +2,10 @@ import os, shutil
 import pefile
 import pandas as pd
 from shutil import copyfile
-import config.constants as cnst
+import config.settings as cnst
 import pickle
-import numpy as np
+import logging
+import hashlib
 
 
 def partition_pkl_files_by_size(type, fold, files, labels):
@@ -14,7 +15,7 @@ def partition_pkl_files_by_size(type, fold, files, labels):
         partition_label = ""
 
     # csv = pd.read_csv(csv_path, header=None)
-    print("Total number of files to partition:", len(files))
+    logging.info("Total number of files to partition: %s", len(files))
     partition_count = 0
     file_count = 0
     t1_partition_data = {}
@@ -42,7 +43,7 @@ def partition_pkl_files_by_size(type, fold, files, labels):
 
             end = i
             pd.DataFrame(list(zip(files[start:end], labels[start:end]))).to_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + partition_label + "p" + str(partition_count) + ".csv", header=None, index=False)
-            print("Created Partition", partition_label+"p"+str(partition_count), "with", file_count, "files and tracker csv with " + str(len(files[start:end])) + " files.")
+            logging.info("Created Partition " + partition_label+"p"+str(partition_count) + " with " + str(file_count) + " files and tracker csv with " + str(len(files[start:end])) + " files.")
             file_count = 0
             partition_count += 1
             t1_partition_data = {}
@@ -51,14 +52,17 @@ def partition_pkl_files_by_size(type, fold, files, labels):
             cur_t2_partition_size = 0
             start = end
 
-        with open(t1_pkl_src_path, 'rb') as f1, open(t2_pkl_src_path, 'rb') as f2:
-            cur_t1pkl = pickle.load(f1)
-            cur_t2pkl = pickle.load(f2)
-            t1_partition_data[file[:-4]] = cur_t1pkl
-            t2_partition_data[file[:-4]] = cur_t2pkl
-            cur_t1_partition_size += t1_src_file_size
-            cur_t2_partition_size += t2_src_file_size
-            file_count += 1
+        try:
+            with open(t1_pkl_src_path, 'rb') as f1, open(t2_pkl_src_path, 'rb') as f2:
+                cur_t1pkl = pickle.load(f1)
+                cur_t2pkl = pickle.load(f2)
+                t1_partition_data[file[:-4]] = cur_t1pkl
+                t2_partition_data[file[:-4]] = cur_t2pkl
+                cur_t1_partition_size += t1_src_file_size
+                cur_t2_partition_size += t2_src_file_size
+                file_count += 1
+        except Exception as e:
+            logging.exception("Error while reading pickle file for partitioning %s  %s", i, file)
 
     if cur_t1_partition_size > 0 or cur_t2_partition_size > 0:
         t1_partition_path = os.path.join(cnst.DATA_SOURCE_PATH, partition_label+"t1_p"+str(partition_count))
@@ -68,7 +72,7 @@ def partition_pkl_files_by_size(type, fold, files, labels):
         with open(t2_partition_path + ".pkl", "wb") as pt2handle:
             pickle.dump(t2_partition_data, pt2handle)
         pd.DataFrame(list(zip(files[start:], labels[start:]))).to_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + partition_label + "p" + str(partition_count) + ".csv", header=None, index=False)
-        print("Created Partition", partition_label+"p"+str(partition_count), "with", file_count, "files and tracker csv with " + str(len(files[start:])) + " files.")
+        logging.info("Created Partition " + partition_label+"p"+str(partition_count) + " with " + str(file_count) + " files and tracker csv with " + str(len(files[start:])) + " files.")
         partition_count += 1
     return partition_count
 
@@ -80,7 +84,7 @@ def partition_pkl_files_by_count(type, fold, files, labels):
         partition_label = ""
 
     # csv = pd.read_csv(csv_path, header=None)
-    print("Total number of files to partition:", len(files))
+    logging.info("Total number of files to partition: %s", len(files))
     partition_count = 0
     t1_partition_data = {}
     t2_partition_data = {}
@@ -103,19 +107,22 @@ def partition_pkl_files_by_count(type, fold, files, labels):
 
             end = i
             pd.DataFrame(list(zip(files[start:end], labels[start:end]))).to_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + partition_label + "p" + str(partition_count) + ".csv", header=None, index=False)
-            print("Created Partition", partition_label+"p"+str(partition_count), "with", cur_partition_file_count, "files and tracker csv with " + str(len(files[start:end])) + " files.")
+            logging.info("Created Partition " + partition_label+"p"+str(partition_count) + " with " + str(cur_partition_file_count) + " files and tracker csv with " + str(len(files[start:end])) + " files.")
             partition_count += 1
             t1_partition_data = {}
             t2_partition_data = {}
             cur_partition_file_count = 0
             start = end
 
-        with open(t1_pkl_src_path, 'rb') as f1, open(t2_pkl_src_path, 'rb') as f2:
-            cur_t1pkl = pickle.load(f1)
-            cur_t2pkl = pickle.load(f2)
-            t1_partition_data[file[:-4]] = cur_t1pkl
-            t2_partition_data[file[:-4]] = cur_t2pkl
-            cur_partition_file_count += 1
+        try:
+            with open(t1_pkl_src_path, 'rb') as f1, open(t2_pkl_src_path, 'rb') as f2:
+                cur_t1pkl = pickle.load(f1)
+                cur_t2pkl = pickle.load(f2)
+                t1_partition_data[file[:-4]] = cur_t1pkl
+                t2_partition_data[file[:-4]] = cur_t2pkl
+                cur_partition_file_count += 1
+        except Exception as e:
+            logging.exception("Error while reading pickle file for partitioning %s   %s", i, file)
 
     if cur_partition_file_count > 0:
         t1_partition_path = os.path.join(cnst.DATA_SOURCE_PATH, partition_label+"t1_p"+str(partition_count))
@@ -125,7 +132,7 @@ def partition_pkl_files_by_count(type, fold, files, labels):
         with open(t2_partition_path + ".pkl", "wb") as pt2handle:
             pickle.dump(t2_partition_data, pt2handle)
         pd.DataFrame(list(zip(files[start:], labels[start:]))).to_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + partition_label + "p" + str(partition_count) + ".csv", header=None, index=False)
-        print("Created Partition", partition_label+"p"+str(partition_count), "with", cur_partition_file_count, "files and tracker csv with " + str(len(files[start:])) + " files.")
+        logging.info("Created Partition " + partition_label+"p"+str(partition_count) + " with " + str(cur_partition_file_count) + " files and tracker csv with " + str(len(files[start:])) + " files.")
         partition_count += 1
     return partition_count
 
@@ -136,14 +143,26 @@ def get_partition_data(type, fold, partition_count, tier):
     else:
         partition_label = tier + "_p" + str(partition_count)
 
-    print("Loading partition:", partition_label)
+    # logging.info("Loading partition: %s", partition_label)
     partition_path = os.path.join(cnst.DATA_SOURCE_PATH, partition_label + ".pkl")
 
     if not os.path.isfile(partition_path):
-        print("Partition file ", partition_path, ' does not exist.')
+        logging.info("Partition file " + partition_path + " does not exist.")
     else:
         with open(partition_path, "rb") as pkl_handle:
             return pickle.load(pkl_handle)
+
+
+def store_partition_data(type, fold, partition_count, tier, pdata):
+    if type is not None:
+        partition_label = type + "_" + str(fold) + "_" + tier + "_p" + str(partition_count)
+    else:
+        partition_label = tier + "_p" + str(partition_count)
+
+    logging.info("Saving partition: %s", partition_label)
+    partition_path = os.path.join(cnst.DATA_SOURCE_PATH, partition_label + ".pkl")
+    with open(partition_path, "wb") as pkl_handle:
+        return pickle.dump(pdata, pkl_handle)
 
 
 def group_files_by_pkl_list():
@@ -178,6 +197,7 @@ def sep_files_by_pkl_list():
 
             whole_bytes = cur_pkl["whole_bytes"]
             wb_size = len(whole_bytes)
+            cur_pkl["whole_bytes_size"] = wb_size
             sections_end = 0
             keys = cur_pkl["section_info"].keys()
             for key in keys:
@@ -267,17 +287,18 @@ def copy_files(src_path, dst_path, ext, max_size):
     return total_count, total_size
 
 
-def collect_sha():
+def collect_sha_from_pe_list():
     df_info = pd.DataFrame()
     df = pd.read_csv('D:\\03_GitWorks\\ATI_changes\\data\\ds1_pkl_unique.csv', header=None)
 
     for i, file in enumerate(df.iloc[:, 0]):
-        if (i+1) % 1000 == 0:
-            print(i+1, "files processed.")
         try:
-            # if df.iloc[:, 1][i] == 0:
-            #    continue
-            src_path = os.path.join('D:\\08_Dataset\\Internal\\mar2020\\pickle_files', 'ee8c29cc3fb611fb6149cd769871cb9b33e024e9.pkl')
+            if df.iloc[:, 1][i] == 0:
+                continue
+            if (i + 1) % 1000 == 0:
+                print(i + 1, "files processed.")
+            src_path = os.path.join('D:\\08_Dataset\\Internal\\mar2020\\pickle_files', file)
+                                    #, 'ee8c29cc3fb611fb6149cd769871cb9b33e024e9.pkl')
             with open(src_path, 'rb') as f:
                 cur_pkl = pickle.load(f)
                 df_info = pd.concat([df_info, pd.DataFrame([[cur_pkl["md5"], cur_pkl["sha1"], cur_pkl["sha256"]]], columns=['md5', 'sha1', 'sha256'])])
@@ -289,16 +310,55 @@ def collect_sha():
     return
 
 
+def collect_sha_from_pe_folder():
+    df_info = pd.DataFrame()
+    target_path = "D:\\08_Dataset\\Internal\\mar2020\\benign\\"
+    unprocessed = 0
+    for file in os.listdir(target_path):
+        try:
+            file_path = target_path + file
+            # check if file can be processed by pefile module
+            pe = pefile.PE(file_path)
+            for item in pe.sections:
+                # Check if all sections are parse-able without error
+                _ = item.Name.rstrip(b'\x00').decode("utf-8").strip()
+                _ = item.get_data()
+
+            src_file_size = os.stat(file_path).st_size
+            if src_file_size > cnst.MAX_FILE_SIZE_LIMIT:
+                unprocessed += 1
+                print("Skipping as file size exceeds ", cnst.MAX_FILE_SIZE_LIMIT, "[ Unprocessed / Skipped Count: " + str(unprocessed) + "]")
+                continue
+
+            with open(file_path, 'rb') as fhandle:
+                file_byte_data = fhandle.read()
+                df_info = pd.concat([df_info,
+                                     pd.DataFrame({'md5': [hashlib.md5(file_byte_data).hexdigest()],
+                                                   'sha1': [hashlib.sha1(file_byte_data).hexdigest()],
+                                                   'sha256': [hashlib.sha256(file_byte_data).hexdigest()],
+                                                   'File Name': [file],
+                                                   'File Size': [src_file_size]})
+                ])
+        except Exception as e:
+            unprocessed += 1
+            print("Unprocessed count:", unprocessed, file, str(e))
+    df_info.to_csv('D:\\08_Dataset\\Internal\\mar2020\\Benign_Info.csv', index=False)
+    return
+
+
 if __name__ == '__main__':
     # src_path = "D:\\08_Dataset\\VirusTotal\\repo\\all"
     # dst_path = "D:\\08_Dataset\\aug24_malware\\"
+
+    # Linux
+    # src_path = "/home/aduraira/projects/def-wangk/aduraira/pickle_files"
+    # dst_path = "/home/aduraira/projects/def-wangk/aduraira/dmy"
 
     # ext = '*.exe'
     # max_size = 512000  # bytes 500KB
     max_files = 110000
     # total_count, total_size = copy_files(src_path, dst_path, ext, max_size)
-
-    # sep_files_by_pkl_list()
+    # collect_sha_from_pe_folder()
     # collect_sha()
     '''
 

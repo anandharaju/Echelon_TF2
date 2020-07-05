@@ -3,8 +3,7 @@ from sklearn import metrics
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import config.constants as cnst
-import time
+import config.settings as cnst
 
 
 class plot_vars():
@@ -186,9 +185,10 @@ def plot_partition_epoch_history(trn_acc, val_acc, trn_loss, val_loss, tier):
         plt.plot(range(len(val_acc)), np.nan_to_num(val_acc), label=tier + ' Validation Acc')
         plt.plot(range(len(trn_loss)), np.nan_to_num(trn_loss), label=tier + ' Training Loss')
         plt.plot(range(len(val_loss)), np.nan_to_num(val_loss), label=tier + ' Validation Loss')
-        plt.xlabel("Epochs", fontsize=10)
-        plt.ylabel("Accuracy/Loss", fontsize=10)
-        plt.legend(fontsize=10)
+        plt.xlabel("Epochs", fontsize=8)
+        plt.ylabel("Accuracy/Loss", fontsize=8)
+        plt.xticks(range(len(trn_acc)), fontsize=6)
+        plt.legend(fontsize=6)
         plt.savefig(cnst.PLOT_PATH + tier + "_Train_Val_History.png", bbox_inches='tight')  # _" + str(time.time()) + "
         # plt.show()
     except Exception as e:

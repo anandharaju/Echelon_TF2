@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --account=def-wangk
-#SBATCH --time=1-23:00:00
+#SBATCH --time=0-12:00:00
 
 #SBATCH --cpus-per-task=8
 #SBATCH --cores-per-socket=8
-#SBATCH --gres=gpu:v100l:1
+#SBATCH --gres=gpu:p100:1
 #SBATCH --mem=64G
 
 #SBATCH -o /home/aduraira/projects/def-wangk/aduraira/cc_out/job%j.out
@@ -12,5 +12,4 @@
 #SBATCH --mail-user=aduraira@sfu.ca
 #SBATCH --mail-type=ALL
 
-source ../../tf2/bin/activate
-python main.py $1
+srun ../../tf2/bin/notebook.sh

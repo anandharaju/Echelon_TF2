@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 import numpy as np
 from train import train
@@ -6,7 +7,7 @@ import time
 import matplotlib.pyplot as plt
 from scipy import interp
 from sklearn import metrics
-import config.constants as cnst
+import config.settings as cnst
 import analyzers.analyze_dataset as analyzer
 from plots.plots import plot_vars as pv
 from sklearn.model_selection import StratifiedKFold, train_test_split
@@ -21,6 +22,7 @@ from analyzers.collect_exe_files import partition_pkl_files_by_count, partition_
 import sklearn.utils
 
 
+'''
 def generate_cv_folds_data(dataset_path):
     mastertraindata = analyzer.ByteData()
     testdata = analyzer.ByteData()
@@ -55,22 +57,29 @@ def generate_cv_folds_data(dataset_path):
         cv_obj.train_data[index] = mastertraindata
         cv_obj.val_data[index] = valdata
         cv_obj.test_data[index] = testdata
-
     return cv_obj
+'''
 
 
 def partition_dataset(dataset_path):
-    adata, _, _ = analyzer.load_dataset(dataset_path)
-    if not os.path.exists(cnst.DATA_SOURCE_PATH):
-        os.makedirs(cnst.DATA_SOURCE_PATH)
+    """ Generates partitions for the supplied dataset through a stratified selection process.
+        Args:
+            dataset_path: Path to the CSV file directory with list of files in given dataset [ALL_FILE param in settings]
+        Returns:
+            pcount: Total number of partitions created for given dataset
+    """
+    if cnst.REGENERATE_DATA:
+        adata, _, _ = analyzer.load_dataset(dataset_path)
+        if not os.path.exists(cnst.DATA_SOURCE_PATH):
+            os.makedirs(cnst.DATA_SOURCE_PATH)
 
-    skf = StratifiedKFold(n_splits=cnst.PARTITIONS, shuffle=True, random_state=cnst.RANDOM_SEED)
-    pd.DataFrame().to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "master_partition_pkl.csv", header=None, index=None)
-    for index, (_, partition_indices) in enumerate(skf.split(adata.xdf, adata.ydf)):
-        temp_partitioningdata = pd.concat([adata.xdf[partition_indices], adata.ydf[partition_indices]], axis=1)
-        temp_partitioningdata = sklearn.utils.shuffle(temp_partitioningdata)
-        temp_partitioningdata = temp_partitioningdata.reset_index(drop=True)
-        temp_partitioningdata.to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "master_partition_pkl.csv", header=None, index=None, mode="a")
+        skf = StratifiedKFold(n_splits=cnst.GRANULARITY_FOR_UNIFORMNESS, shuffle=True, random_state=cnst.RANDOM_SEED)
+        pd.DataFrame().to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "master_partition_pkl.csv", header=None, index=None)
+        for index, (_, partition_indices) in enumerate(skf.split(adata.xdf, adata.ydf)):
+            temp_partitioningdata = pd.concat([adata.xdf[partition_indices], adata.ydf[partition_indices]], axis=1)
+            temp_partitioningdata = sklearn.utils.shuffle(temp_partitioningdata)
+            temp_partitioningdata = temp_partitioningdata.reset_index(drop=True)
+            temp_partitioningdata.to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "master_partition_pkl.csv", header=None, index=None, mode="a")
 
     partitioningdf = pd.read_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "master_partition_pkl.csv", header=None)
     pcount = partition_pkl_files_by_count(None, None, partitioningdf.iloc[:, 0], partitioningdf.iloc[:, 1]) if cnst.PARTITION_BY_COUNT else partition_pkl_files_by_size(None, None, partitioningdf.iloc[:, 0], partitioningdf.iloc[:, 1])
@@ -79,59 +88,73 @@ def partition_dataset(dataset_path):
 
 
 def train_predict(model_idx, dataset_path=None):
+    """ Initiates n-fold cross validation process followed by testing.
+        Args:
+            model_idx: Default-0 for byte sequence models.
+            dataset_path: Path to the CSV file directory with list of files in supplied dataset
+        Returns:
+            None
+    """
     tst = time.time()
-    print("\nSTART TIME  [", datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "]")
+    logging.info("\nSTART TIME  [ " + str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")) + " ]")
     # cv_obj = generate_cv_folds_data(dataset_path)
 
-    m_pcount = None
-    if cnst.REGENERATE_DATA_AND_PARTITIONS:
+    if cnst.REGENERATE_PARTITIONS:
         m_pcount = partition_dataset(dataset_path)
         cpt = time.time()
-        print("\nTIME ELAPSED FOR GENERATING PARTITIONS:", str(int(cpt - tst) / 60), " minutes   [", datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "]")
+        logging.info("\nTIME ELAPSED FOR GENERATING PARTITIONS: " + str(int(cpt - tst) / 60) + " minutes   [ " + str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")) + " ]")
     else:
         m_pcount = pd.read_csv(os.path.join(cnst.DATA_SOURCE_PATH, "master_partition_tracker.csv"))["master"][0]
 
+    if cnst.SKIP_CROSS_VALIDATION:
+        return
+
+    logging.info("Total Partition: %s", m_pcount)
     tst_pcount = int(round(m_pcount * cnst.TST_SET_SIZE))
-    tst_partitions = list(range(m_pcount-1, m_pcount-tst_pcount-1, -1))
+    tst_partitions = list(range(m_pcount-1, m_pcount-tst_pcount-1, -1))[::-1]
     m_pcount -= tst_pcount
     val_pcount = int(round(m_pcount * cnst.VAL_SET_SIZE))
     trn_pcount = m_pcount - val_pcount
 
-    print("Total Partition:", m_pcount, "\t\t\tTrain:", trn_pcount, "Val:", val_pcount, "Test:", tst_pcount)
+    logging.info("Train: %s   Val: %s   Test: %s", trn_pcount, val_pcount, tst_pcount)
     cv_obj = cv_info()
+    model1_state = cnst.USE_PRETRAINED_FOR_TIER1
+    model2_state = cnst.USE_PRETRAINED_FOR_TIER2
     for fold_index in range(cnst.CV_FOLDS):
         trn_val_partitions = [x for x in range(m_pcount)]
         val_partitions = (np.arange(val_pcount) + (fold_index * val_pcount)) % m_pcount
         trn_partitions = [x for x in trn_val_partitions if x not in val_partitions]
-        print("train", trn_partitions, "val", val_partitions, "test", tst_partitions)
         pd.DataFrame([{"train": trn_partitions, "val": val_partitions, "test": tst_partitions}]).to_csv(os.path.join(cnst.DATA_SOURCE_PATH, "partition_tracker_" + str(fold_index) + ".csv"), index=False)
 
-        print("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> [ CV-FOLD " + str(fold_index + 1) + "/" + str(cnst.CV_FOLDS) + " ]", "Training: " + str(len(trn_partitions)), "Validation: " + str(len(val_partitions)), "Testing: " + str(len(tst_partitions)))
+        logging.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> [ CV-FOLD " + str(fold_index + 1) + "/" + str(cnst.CV_FOLDS) + " ]     Training: " + str(len(trn_partitions)) + "    Validation: " + str(len(val_partitions)) + "    Testing: " + str(len(tst_partitions)))
+        logging.info("Partition List: train %s   val %s   test %s", trn_partitions, val_partitions, tst_partitions)
         if fold_index not in cnst.RUN_FOLDS:
             continue
 
         if not cnst.SKIP_ENTIRE_TRAINING:
             cpt = time.time()
             train.init(model_idx, trn_partitions, val_partitions, fold_index)
-            print("\nTIME ELAPSED FOR TRAINING:", str(int(time.time() - cpt) / 60), " minutes   [", datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "]")
+
+            logging.info("TIME ELAPSED FOR TRAINING:" + str(int(time.time() - cpt) / 60) + " minutes   [ " + str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")) + " ]")
         else:
-            print("SKIPPED: Tier 1&2 Training Process")
+            logging.info("SKIPPED: Tier 1&2 Training Process")
 
         if cnst.ONLY_TIER1_TRAINING:
             continue
-        print("**********************  PREDICTION TIER 1&2 - STARTED  ************************")
+        logging.info("**********************  PREDICTION TIER 1&2 - STARTED  ************************")
         cpt = time.time()
 
         pred_cv_obj = predict.init(model_idx, tst_partitions, cv_obj, fold_index)
+        logging.info("**********************  PREDICTION TIER 1&2 - ENDED    ************************")
         if pred_cv_obj is not None:
             cv_obj = pred_cv_obj
         else:
-            print("Problem occurred during prediction phase of current fold. Proceeding to next fold . . .")
-        print("**********************  PREDICTION TIER 1&2 - ENDED    ************************")
-        print("\nTIME ELAPSED FOR PREDICTION:", str(int(time.time() - cpt) / 60), " minutes   [", datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "]")
+            logging.info("Problem occurred during prediction phase of current fold. Proceeding to next fold . . .")
+            continue
+        logging.info("TIME ELAPSED FOR PREDICTION:" + str(int(time.time() - cpt) / 60) + " minutes   [ " + str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")) + " ]")
 
         tet = time.time() - tst
-        print("\nTOTAL TIME ELAPSED :", str(int(tet) / 60), " minutes   [", datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "]")
+        logging.info("TOTAL TIME ELAPSED :" + str(int(tet) / 60) + " minutes   [" + str(datetime.now().strftime("%d/%m/%Y %H:%M:%S")) + " ]")
         # return
 
         if cv_obj is not None:
@@ -139,6 +162,11 @@ def train_predict(model_idx, dataset_path=None):
             scoredf = pd.DataFrame([np.mean(cv_obj.t1_mean_auc_score_restricted), np.mean(cv_obj.t1_mean_auc_score), np.mean(cv_obj.recon_mean_auc_score_restricted), np.mean(cv_obj.recon_mean_auc_score)])
             cvdf.to_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+"out"+cnst.ESC+"result"+cnst.ESC+"mean_cv.csv", index=False, header=None)
             scoredf.to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC+"out"+cnst.ESC+"result"+cnst.ESC+"score_cv.csv", index=False, header=None)
-            print("CROSS VALIDATION >>> TIER1 TPR:", np.mean(cv_obj.t1_tpr_list), "FPR:", np.mean(cv_obj.t1_fpr_list), "OVERALL TPR:", np.mean(cv_obj.recon_tpr_list), "FPR:", np.mean(cv_obj.recon_fpr_list))
-            print("Tier-1 ROC (Restricted AUC = %0.3f) [Full AUC: %0.3f]" % (np.mean(cv_obj.t1_mean_auc_score_restricted), np.mean(cv_obj.t1_mean_auc_score)))
-            print("Reconciled ROC (Restricted AUC = %0.3f) [Full AUC: %0.3f]" % (np.mean(cv_obj.recon_mean_auc_score_restricted), np.mean(cv_obj.recon_mean_auc_score)))
+            logging.info("CROSS VALIDATION >>> TIER1 TPR: %s    FPR: %s    OVERALL TPR: %s    OVERALL FPR: %s", np.mean(cv_obj.t1_tpr_list), np.mean(cv_obj.t1_fpr_list), np.mean(cv_obj.recon_tpr_list), np.mean(cv_obj.recon_fpr_list))
+            logging.info("Tier-1 ROC (Restricted AUC = %0.3f ± %0.2f) " % (np.mean(cv_obj.t1_mean_auc_score_restricted), np.std(cv_obj.t1_mean_auc_score_restricted)))  # [Full AUC: %0.3f]  # , np.mean(cv_obj.t1_mean_auc_score)
+            logging.info("Reconciled ROC (Restricted AUC = %0.3f ± %0.2f) " % (np.mean(cv_obj.recon_mean_auc_score_restricted), np.std(cv_obj.recon_mean_auc_score_restricted)))  # [Full AUC: %0.3f] # , np.mean(cv_obj.recon_mean_auc_score)
+
+        cnst.USE_PRETRAINED_FOR_TIER1 = model1_state
+        cnst.USE_PRETRAINED_FOR_TIER2 = model2_state
+
+    plot_cv_auc()

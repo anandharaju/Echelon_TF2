@@ -1,6 +1,6 @@
 import os
 import pefile
-import config.constants as cnst
+import config.settings as cnst
 
 
 SKIP = False

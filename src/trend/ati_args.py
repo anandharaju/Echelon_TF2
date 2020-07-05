@@ -1,4 +1,4 @@
-from config import constants as cnst
+from config import settings as cnst
 
 
 class SectionActivationDistribution:

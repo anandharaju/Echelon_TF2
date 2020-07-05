@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-from config import constants as cnst
 
 
 def feature_map_histogram(feature_map, prediction):
