@@ -79,31 +79,35 @@ as it contained data only for the 'code' PE section. Our design works with the d
 Given a set of raw PE samples, the provided notebook [Data_Preprocessing_and_Partitioning](src/Data_Preprocessing_and_Partitioning.ipynb) 
 would help to prepare a dataset befitting our framework.
 
-3. Complete logs for the 5-fold cross validation done on DS1 is provided under ```logs/ds1_fold_<x>.out```
+3. Sample logs for the complete 5-fold cross validation done on DS1 is provided under ```logs```
 
 ### Experimental Results over the DS1 dataset:
-Cross Validation Type: 5-fold (Target FPR = 0.03%)
+Cross Validation Type: 5-fold (Target FPR = 0.1%)
 
-|     Implementation Type     | Tier-1<br>TPR% | Overall<br>TPR% | TPR<br>Improvement % | Tier-1<br>FPR% | Overall<br>FPR% | FPR<br>Difference | Tier-1<br>Restricted<br>Accuracy | Overall<br>Restricted<br>Accuracy | Average<br>New TPs | Average<br>New FPs | Average<br>Running Time<br>per Fold | Average Prediction<br>Time per sample |
+|     Implementation Type     | Tier-1<br> Avg. TPR% | Overall<br>Avg. TPR% | TPR<br>Improvement % | Tier-1<br>Avg. FPR% | Overall<br> Avg. FPR% | FPR<br>Difference | Avg. Tier-1<br>Restricted<br>Accuracy | Avg. Overall<br>Restricted<br>Accuracy | Average<br>New TPs | Average<br>New FPs | Average Tier-2<br>Running Time<br> | Average Prediction<br>Time per sample |
 |:---------------------------:|:--------------:|:---------------:|:--------------------:|:--------------:|:---------------:|:-----------------:|:--------------------------------:|:---------------------------------:|:------------------:|:------------------:|:-----------------------------------:|:-------------------------------------:|
-| Top Activation Blocks based |      90.62     |      93.11      |         2.49         |      0.07      |       0.08      |        0.01       |               0.92               |                0.93               |         260        |          1         |              9<br>Hours             |         0.3<br>seconds                |
-|       Section-Id based      |      90.62     |      93.94      |         3.32         |      0.07      |       0.09      |        0.02       |               0.92               |                0.93               |         288        |          2         |             9.5<br>Hours            |         0.3<br>seconds                |
-|        Basic two-tier       |      90.62     |      92.91      |         2.29         |      0.07      |       0.12      |        0.05       |               0.91               |                0.89               |         239        |          6         |             19<br>Hours             |         0.3<br>seconds                |
+| Top Activation Blocks based |      90.62     |      93.11      |         2.49         |      0.07      |       0.08      |        0.01       |               0.92               |                0.93               |         260        |          1         |              16 hours             |         90 ms                |
+|       Section-Id based      |      90.62     |      93.94      |         3.32         |      0.07      |       0.09      |        0.02       |               0.92               |                0.93               |         288        |          2         |             9 hours            |         75 ms                |
+|        Basic two-tier       |      90.62     |      92.91      |         2.29         |      0.07      |       0.12      |        0.05       |               0.91               |                0.89               |         239        |          6         |             23 hours             |         128 ms                 |
 
 On comparing the above results, the top activation & 
 section id implementations are able to achieve > 2 to 3% improvement in TPR,
 while holding the FPR within target FPR. Both the implementations are better
 than the basic two-tier version in providing better performance as well as 
 reduced time consumption.
-Please note that the experiments were carried out with a target FPR of 0.03% (not 1%). 
+Please note that the experiments were carried out with a target FPR of 0.1% (not 1%). 
 
 The table also provides additional information (scroll right) such as 
 the average number of new true positives correctly re-classified by Tier-2 
 for the average number of new false positives expended. For example, 
 the top activation version is able to re-classify 260 malwares correctly 
 for 1 false positive on average. Other information like the average time for completing 
-one fold of 5-fold cross validation and the average prediction time per sample
-is also provided.
+tier-2 training across cross validation and the average prediction time per sample
+is also provided - the average prediction time includes data partitioning for test data's B1 set.
+
+Please note that Restricted AUC is calculated for TPR range of 0 to 100 and FPR range of 0 to <Target_FPR value>.
+Therefore, it is very sensitive even for a slight FPR increase and poorly sensitive for TPR increase.
+
 ### Getting Started:
 
 ### Pre-requisites:
