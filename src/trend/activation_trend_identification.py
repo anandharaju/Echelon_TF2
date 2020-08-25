@@ -145,7 +145,7 @@ def map_act_to_sec(ftype, fmap, sbounds, sd):
 
         for current_activation_window in range(0, len(fmap)):  # range(0, int(cnst.MAX_FILE_SIZE_LIMIT / cnst.CONV_STRIDE_SIZE)):
             section = None
-            offset = idx[current_activation_window] * 500
+            offset = idx[current_activation_window] * cnst.CONV_WINDOW_SIZE
             act_val = fmap[idx[current_activation_window]]
 
             ######################################################################################

@@ -54,7 +54,7 @@ class DefaultPredictArguments:
     tier2_epochs = 1
     total_features = 53
     max_len = cnst.MAX_FILE_SIZE_LIMIT  # help="model input length"
-    win_size = 500
+    win_size =  cnst.CONV_WINDOW_SIZE
     save_path = cnst.SAVE_PATH
     model_path = cnst.MODEL_PATH
 

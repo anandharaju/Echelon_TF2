@@ -43,7 +43,8 @@ def preprocess_by_section(spartition, file_list, max_len, sections, section_map)
             logging.critical(fn + ' not exists in partition')
         else:
             fjson = spartition[fn]
-            combined = np.zeros(fjson["whole_bytes_size"] if cnst.LINUX_ENV else 2 ** 20)
+            # Zero Replacement logic [Maintains same 1MB length]
+            '''combined = np.zeros(fjson["whole_bytes_size"] if cnst.LINUX_ENV else 2 ** 20)
             try:
                 keys = fjson["section_info"].keys()
                 for section in sections:
@@ -55,6 +56,23 @@ def preprocess_by_section(spartition, file_list, max_len, sections, section_map)
                         combined[start:start+len(data)] = data
                 if len(combined) > max_len:
                     logging.info("[CAUTION: LOSS_OF_DATA] Combined sections exceeded max sample length by " + str(len(combined) - max_len) + " bytes.")
+                corpus.append(combined)
+            '''
+
+            # Concatenation logic - non-uniform section ends are padded to meet nearest conv. window multiple
+            combined = []
+            try:
+                keys = fjson["section_info"].keys()
+                for section in sections:
+                    if section in keys:
+                        # print(np.shape(combined))
+                        # start = fjson["section_info"][section]["section_bounds"]["start_offset"]
+                        # end = fjson["section_info"][section]["section_bounds"]["end_offset"] + 1
+                        data = fjson["section_info"][section]["section_data"]
+                        combined = np.concatenate(combined, data, np.zeros(cnst.CONV_WINDOW_SIZE - (len(data) % cnst.CONV_WINDOW_SIZE)))
+                if len(combined) > max_len:
+                    logging.info("[CAUTION: LOSS_OF_DATA] Combined sections exceeded max sample length by " + str(
+                        len(combined) - max_len) + " bytes.")
                 corpus.append(combined)
 
             except Exception as e:
