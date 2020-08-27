@@ -44,7 +44,7 @@ def preprocess_by_section(spartition, file_list, max_len, sections, section_map)
         else:
             fjson = spartition[fn]
             # Zero Replacement logic [Maintains same 1MB length]
-            '''combined = np.zeros(fjson["whole_bytes_size"] if cnst.LINUX_ENV else 2 ** 20)
+            combined = np.zeros(fjson["whole_bytes_size"] if cnst.LINUX_ENV else 2 ** 20)
             try:
                 keys = fjson["section_info"].keys()
                 for section in sections:
@@ -57,24 +57,28 @@ def preprocess_by_section(spartition, file_list, max_len, sections, section_map)
                 if len(combined) > max_len:
                     logging.info("[CAUTION: LOSS_OF_DATA] Combined sections exceeded max sample length by " + str(len(combined) - max_len) + " bytes.")
                 corpus.append(combined)
-            '''
-
-            # Concatenation logic - non-uniform section ends are padded to meet nearest conv. window multiple
-            combined = []
-            try:
-                keys = fjson["section_info"].keys()
-                for section in sections:
-                    if section in keys:
-                        # print(np.shape(combined))
-                        # start = fjson["section_info"][section]["section_bounds"]["start_offset"]
-                        # end = fjson["section_info"][section]["section_bounds"]["end_offset"] + 1
-                        data = fjson["section_info"][section]["section_data"]
-                        combined = np.concatenate(combined, data, np.zeros(cnst.CONV_WINDOW_SIZE - (len(data) % cnst.CONV_WINDOW_SIZE)))
-                if len(combined) > max_len:
-                    logging.info("[CAUTION: LOSS_OF_DATA] Combined sections exceeded max sample length by " + str(
-                        len(combined) - max_len) + " bytes.")
-                corpus.append(combined)
-
+                '''
+                            # Concatenation logic - non-uniform section ends are padded to meet nearest conv. window multiple
+                            combined = []
+                            try:
+                                keys = fjson["section_info"].keys()
+                                for section in sections:
+                                    if section in keys:
+                                        # print(np.shape(combined))
+                                        # start = fjson["section_info"][section]["section_bounds"]["start_offset"]
+                                        # end = fjson["section_info"][section]["section_bounds"]["end_offset"] + 1
+                                        data = fjson["section_info"][section]["section_data"]
+                                        # print(np.shape(data), np.shape(combined), np.shape(len(data)))
+                                        combined = np.concatenate((combined, data, np.zeros(cnst.CONV_WINDOW_SIZE - (len(data) % cnst.CONV_WINDOW_SIZE))), axis=None)
+                                        if len(data) % cnst.CONV_WINDOW_SIZE > 0:
+                                            combined = np.concatenate((combined, data, np.zeros(cnst.CONV_WINDOW_SIZE - (len(data) % cnst.CONV_WINDOW_SIZE))), axis=None)
+                                        else:
+                                            combined = np.concatenate((combined, data), axis=None)
+                                if len(combined) > max_len:
+                                    logging.debug("[CAUTION: LOSS_OF_DATA] Combined sections exceeded max sample length by " + str(
+                                        len(combined) - max_len) + " bytes. #Sections:"+str(len(sections)))
+                                corpus.append(combined)
+                '''
             except Exception as e:
                 logging.exception("Error in Module: preprocess/process_by_section.")
 

@@ -43,10 +43,11 @@ def find_qualified_sections(sd, trend, common_trend, support, fold_index):
 
     q_sections_by_q_criteria = {}
     for i, _ in enumerate(cnst.PERCENTILES):
-        q_sections_by_q_criteria[mal_q_criteria_by_percentiles[i]] = np.unique(np.concatenate([trend.columns[malfluence > mal_q_criteria_by_percentiles[i]], trend.columns[benfluence > ben_q_criteria_by_percentiles[i]]]))
+        # Uncomment [:50] for unqualified sections. Set percentile to 48
+        q_sections_by_q_criteria[mal_q_criteria_by_percentiles[i]] = np.unique(np.concatenate([trend.columns[malfluence > mal_q_criteria_by_percentiles[i]], trend.columns[benfluence > ben_q_criteria_by_percentiles[i]]]))  # [:50]
         if i == 0:  # Do once for lowest percentile
-            list_qsec = np.concatenate([trend.columns[malfluence > mal_q_criteria_by_percentiles[i]], trend.columns[benfluence > ben_q_criteria_by_percentiles[i]]])
-            list_avg_act_mag_signed = np.concatenate([malfluence[malfluence > mal_q_criteria_by_percentiles[i]] * -1, benfluence[benfluence > ben_q_criteria_by_percentiles[i]]])
+            list_qsec = np.concatenate([trend.columns[malfluence > mal_q_criteria_by_percentiles[i]], trend.columns[benfluence > ben_q_criteria_by_percentiles[i]]])  # [:50]
+            list_avg_act_mag_signed = np.concatenate([malfluence[malfluence > mal_q_criteria_by_percentiles[i]] * -1, benfluence[benfluence > ben_q_criteria_by_percentiles[i]]])  # [:50]
 
             available_sec = pd.read_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + 'data' + cnst.ESC + 'available_sections.csv', header=None)
             available_sec = list(available_sec.iloc[0])
