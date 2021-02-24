@@ -77,8 +77,8 @@ def main():
 if __name__ == '__main__':
     try:
         copyfile(cnst.DATASET_BACKUP_FILE, cnst.ALL_FILE)
-        copyfile(cnst.PKL_SOURCE_PATH + cnst.ESC + 'available_sections.csv', cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + 'available_sections.csv')
-        copyfile(cnst.PKL_SOURCE_PATH + cnst.ESC + 'section_embeddings.csv', cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + 'section_embeddings.csv')
+        #copyfile(cnst.PKL_SOURCE_PATH + cnst.ESC + 'available_sections.csv', cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + 'available_sections.csv')
+        #copyfile(cnst.PKL_SOURCE_PATH + cnst.ESC + 'section_embeddings.csv', cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + 'section_embeddings.csv')
     except:
         logging.exception("Error occurred while copying data pre-processing outcomes. Exiting . . .")
         exit()

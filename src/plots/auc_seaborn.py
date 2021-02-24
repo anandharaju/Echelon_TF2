@@ -2,48 +2,60 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from config import settings as cnst
+from sklearn import metrics
 
 
 def plot_cv_auc():
-    cvdf = pd.read_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+'out'+cnst.ESC+'result'+cnst.ESC+'mean_cv.csv', header=None)
-    fpr1 = cvdf.loc[0]
-    tpr1 = cvdf.loc[1]
-    rfpr = cvdf.loc[2]
-    rtpr = cvdf.loc[3]
-
-    scoredf = pd.read_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+'out'+cnst.ESC+'result'+cnst.ESC+'score_cv.csv', header=None)
-    scores = scoredf.loc[:, 0].values
-
     sns.set()
-
+    sns.set_style("whitegrid", {'axes.grid': False})
     dpi = 300
-    figsize = (5, 3)
-    font_size = 5
+    figsize = (5, 4)
+    font_size = 9
     plt.figure(num=None, figsize=figsize, dpi=dpi)
-    sns.lineplot(fpr1, tpr1, color='r', linewidth=1, label=r'Tier-1 ROC (Restricted AUC = %0.3f $\pm$ %0.2f) ' % (scores[0], np.std(scores[0])), alpha=.8)  # , scores[1] [Full AUC: %0.3f]
-    sns.lineplot(rfpr, rtpr, color='b', linewidth=1, label=r'Reconciled ROC (Restricted AUC = %0.3f $\pm$ %0.2f) ' % (scores[2], np.std(scores[2])), alpha=.8)  # , scores[3] [Full AUC: %0.3f]
 
-    plt.xlim(0, cnst.OVERALL_TARGET_FPR * 2)
+    model = ["LockBoost - Semantic Aware",
+             "LockBoost - Section Based",
+             "AdaBoost-CNN",
+             "CNN-Xgboost",
+             "Raff et al (Malconv)",
+             "Model 6",
+             "Model 7",
+             "Krcal et al"]
+    files = [# "roc_96.43_0.10.csv",
+             "roc_95.18_0.096.csv",
+             "roc_93.29_0.098.csv",
+             # "roc_91.93_0.096.csv",
+             "roc_91.12_0.10.csv",
+             "roc_90.44_0.098.csv",
+             # "roc_88.66_0.096.csv",
+             "roc_88.37_0.098.csv"
+             ]
+    auc = [0.999,
+           0.996,
+           0.996,
+           0.994,
+           0.988]
+    rauc = [0.02,
+            0.01,
+            0.13,
+            0.22,
+            0.07]
+
+    for i in range(0, len(files)):
+        cvdf = pd.read_csv("D:\\03_GitWorks\\Echelon_TF2\\data\\"+files[i], header=None)
+        sns.lineplot(cvdf.iloc[:, 0], cvdf.iloc[:, 1], linewidth=1,
+                     label=r''+model[i]+' (Restricted AUC = %0.3f $\pm$ %0.2f) ' % (auc[i], rauc[i]), alpha=.8)
+
+    plt.xlim(0, 0.001)
+    plt.ylim(0.5, 1)
     plt.xlabel("FPR %", fontsize=font_size)
     plt.ylabel("TPR %", fontsize=font_size)
-    plt.xticks(fontsize=font_size)  # , ticks=[x/10 for x in np.arange(0, 11, 1)], labels=[str(x/10)+"%" for x in np.arange(0, 11, 1)])
-    plt.yticks(fontsize=font_size, ticks=[y for y in np.arange(0, 105, 10)], labels=[str(y)+"%" for y in np.arange(0, 105, 10)])
-    #plt.plot([cnst.OVERALL_TARGET_FPR, cnst.OVERALL_TARGET_FPR], [0, 100], 'grey', linestyle=':', label="Target FPR")
-    #plt.plot([0, 100], [90, 90], 'grey', linestyle='-.', label="Target TPR")
-    plt.legend(loc=8, prop={'size': font_size})
-    plt.grid(b=True, which='both')
-    plt.xlim(0, 100)
-    plt.savefig(cnst.PROJECT_BASE_PATH + cnst.ESC + "out" + cnst.ESC + "imgs" + cnst.ESC + "cv_auc_full.png", bbox_inches='tight')
-
-    #plt.xlim(0, 10)
-    #plt.savefig(cnst.PROJECT_BASE_PATH + cnst.ESC + "out" + cnst.ESC + "imgs" + cnst.ESC + "cv_auc_10_percent.png", bbox_inches='tight')
-
-    #plt.xlim(0, 1)
-    #plt.savefig(cnst.PROJECT_BASE_PATH + cnst.ESC + "out" + cnst.ESC + "imgs" + cnst.ESC + "cv_auc_1_percent.png", bbox_inches='tight')
-
-    #plt.xlim(0, cnst.OVERALL_TARGET_FPR * 1.1)
-    #plt.savefig(cnst.PROJECT_BASE_PATH + cnst.ESC + "out" + cnst.ESC + "imgs" + cnst.ESC + "cv_auc_by_target_fpr.png", bbox_inches='tight')
+    plt.xticks([0, 0.0002, 0.0004, 0.0006, 0.0008, 0.001], labels=["0%", "0.02%", "0.04%", "0.06%", "0.08%", "0.1%"], fontsize=font_size)
+    plt.yticks([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], labels=["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"], fontsize=font_size)
+    plt.legend(prop={'size': font_size-1})
+    # plt.grid(b=True, which='both')
+    plt.savefig("D:\\03_GitWorks\\Echelon_TF2\\data\\kdd_auc.png", bbox_inches='tight')
     plt.show()
 
 
+plot_cv_auc()

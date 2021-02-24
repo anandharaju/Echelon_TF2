@@ -170,6 +170,7 @@ setup for organizing the different forms of data being handled:
 │
 ├── Echelon_Block                           # Cloned project directory
 │   ├── data                                # Base & Intermediate pickle files
+│   ├── log                                 # To store cross validation logs
 │   ├── model                               # Trained models are saved here
 │   ├── out                                 
 │   │   ├── imgs                            # Plots and Charts

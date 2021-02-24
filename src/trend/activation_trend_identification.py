@@ -1,6 +1,6 @@
 import numpy as np
 from keras.models import Model
-from keras.models import load_model
+from keras.models import load_model, model_from_json
 from os.path import join
 import config.settings as cnst
 import plots.plots as plots
@@ -11,6 +11,7 @@ import pandas as pd
 from analyzers.collect_exe_files import get_partition_data, store_partition_data
 import gc
 import logging
+import pefile
 
 
 def find_qualified_sections(sd, trend, common_trend, support, fold_index):
@@ -63,7 +64,9 @@ def find_qualified_sections(sd, trend, common_trend, support, fold_index):
                     if not (cnst.LEAK in str(e) or cnst.PADDING in str(e)):
                         logging.debug("The section ["+str(q)+"] is not present in available_sections.csv/section_embeddings.csv")
 
-            qdf = pd.DataFrame([list_qsec, list_qsec_id, list_qsec_emb, list_avg_act_mag_signed], columns=list_qsec)
+            influence = np.concatenate([malfluence[malfluence > mal_q_criteria_by_percentiles[i]], benfluence[benfluence > ben_q_criteria_by_percentiles[i]]])
+            qdf = pd.DataFrame([list_qsec, list_qsec_id, list_qsec_emb, list_avg_act_mag_signed, influence], columns=list_qsec, index=['a', 'b', 'c', 'd', 'e'])
+            qdf = qdf.transpose().sort_values(by='e', ascending=False).transpose()
             qdf.to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + 'data' + cnst.ESC + 'qsections_meta_'+str(fold_index)+'.csv', header=None, index=False)
             # print("Mal Sections:", trend.columns[malfluence > mal_q_criteria_by_percentiles[i]])
             # print("Ben Sections:", trend.columns[benfluence > ben_q_criteria_by_percentiles[i]])
@@ -88,20 +91,22 @@ def parse_pe_pkl(file_index, file_id, fjson, unprocessed):
     file_byte_size = None
     max_section_end_offset = 0
     try:
-        file_byte_size = fjson['size_byte']
-        pkl_sections = fjson["section_info"].keys()
-        for pkl_section in pkl_sections:
+        # file_byte_size = fjson['size_byte']
+        with open(cnst.RAW_SAMPLE_DIR + file_id, 'rb') as f:
+            file_byte_size = len(list(f.read()))
+        pe = pefile.PE(cnst.RAW_SAMPLE_DIR + file_id)
+        for pkl_section in pe.sections:
             section_bounds.append(
-                (pkl_section,
-                 fjson["section_info"][pkl_section]["section_bounds"]["start_offset"],
-                 fjson["section_info"][pkl_section]["section_bounds"]["end_offset"]))
-            if fjson["section_info"][pkl_section]["section_bounds"]["end_offset"] > max_section_end_offset:
-                max_section_end_offset = fjson["section_info"][pkl_section]["section_bounds"]["end_offset"]
+                (pkl_section.Name.strip(b'\x00').decode("utf-8").strip(),
+                 pkl_section.PointerToRawData,
+                 pkl_section.PointerToRawData + pkl_section.SizeOfRawData))
+            if (pkl_section.PointerToRawData + pkl_section.SizeOfRawData) > max_section_end_offset:
+                max_section_end_offset = (pkl_section.PointerToRawData + pkl_section.SizeOfRawData)
 
         # Placeholder section "padding" - for activations in padding region
-        if max_section_end_offset < fjson["size_byte"]:
-            section_bounds.append((cnst.TAIL, max_section_end_offset + 1, fjson["size_byte"]))
-        section_bounds.append((cnst.PADDING, fjson["size_byte"] + 1, cnst.MAX_FILE_SIZE_LIMIT))
+        # if max_section_end_offset < fjson["size_byte"]:
+        #    section_bounds.append((cnst.TAIL, max_section_end_offset + 1, fjson["size_byte"]))
+        # section_bounds.append((cnst.PADDING, fjson["size_byte"] + 1, cnst.MAX_FILE_SIZE_LIMIT))
     except Exception as e:
         logging.Exception("parse failed . . . [FILE INDEX - " + str(file_index) + "]  [" + str(file_id) + "] ")
         unprocessed += 1
@@ -219,7 +224,11 @@ def get_feature_maps(smodel, partition, files):
     """
     predict_args = DefaultPredictArguments()
     predict_args.verbose = cnst.ATI_PREDICT_VERBOSE
-    raw_feature_maps = predict_byte(smodel, partition, files, predict_args)
+
+    xlen = len(files)
+    predict_args.pred_steps = xlen // predict_args.batch_size if xlen % predict_args.batch_size == 0 else xlen // predict_args.batch_size + 1
+
+    raw_feature_maps = predict_byte(smodel, files, predict_args)
     return raw_feature_maps
 
 
@@ -246,7 +255,7 @@ def process_files(stunted_model, args, sd):
     gc.collect()
 
     for i in range(0, len(files)):
-        section_bounds, unprocessed, fsize = parse_pe_pkl(i, files[i][:-4], args.section_b1_train_partition[files[i][:-4]], unprocessed)
+        section_bounds, unprocessed, fsize = parse_pe_pkl(i, files[i], args.section_b1_train_partition[files[i]], unprocessed)
         if cnst.USE_POOLING_LAYER:
             try:
                 pooled_max_1D_map = np.sum(raw_feature_maps[i] == np.amax(raw_feature_maps[i], axis=0), axis=1)[:np.min([cnst.MAX_FILE_CONVOLUTED_SIZE,int(fsize/cnst.CONV_STRIDE_SIZE)+2])]
@@ -307,11 +316,31 @@ def process_files(stunted_model, args, sd):
     '''
 
 
+def change_model(model, new_input_shape=(None, cnst.SAMPLE_SIZE)):
+    """ Function to transfer weights of pre-trained Malconv to the block based model with reduced input shape.
+        Args:
+            model: An object with required parameters/hyper-parameters for loading, configuring and compiling
+            new_input_shape: a value <= Tier-1 model's input shape. Typically, ( Num of Conv. Filters * Size of Conv. Stride )
+        Returns:
+            new_model: new model with reduced input shape and weights updated
+    """
+    model._layers[0].batch_input_shape = new_input_shape
+    new_model = model_from_json(model.to_json())
+    for layer in new_model.layers:
+        try:
+            layer.set_weights(model.get_layer(name=layer.name).get_weights())
+            # logging.info("Loaded and weights set for layer {}".format(layer.name))
+        except Exception as e:
+            logging.exception("Could not transfer weights for layer {}".format(layer.name))
+    return new_model
+
+
 def get_stunted_model(args, tier):
     """ Function to stunt the given model up to the required hidden layer
         based on the supplied hidden layer number
     """
     complete_model = load_model(join(args.save_path, args.t1_model_name if tier == 1 else args.t2_model_name))
+    complete_model = change_model(complete_model, new_input_shape=(None, cnst.SAMPLE_SIZE))
     # model.summary()
     # redefine model to output right after the sixth hidden layer
     # (ReLU activation layer after convolution - before max pooling)

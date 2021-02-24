@@ -4,7 +4,7 @@ import pandas as pd
 from sklearn import metrics
 #matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from keras.models import load_model
+from keras.models import load_model, save_model, model_from_json
 from config import settings as cnst
 from .predict_args import DefaultPredictArguments, Predict as pObj
 from plots.plots import display_probability_chart
@@ -14,9 +14,14 @@ import os
 from trend import activation_trend_identification as ati
 import logging
 import math
+import time
+from keras import backend
+from keras import optimizers
+import tensorflow as tf
+backend.set_learning_phase(0)
 
 
-def predict_byte(model, partition, xfiles, args):
+def predict_byte(model, xfiles, args):
     """
         Function to perform prediction process on entire byte sequence of PE samples in Tier-1
         Params:
@@ -27,17 +32,16 @@ def predict_byte(model, partition, xfiles, args):
         Returns:
             pred: object with predicted probabilities
     """
-    xlen = len(xfiles)
-    pred_steps = xlen//args.batch_size if xlen % args.batch_size == 0 else xlen//args.batch_size + 1
-    pred = model.predict(
-        utils.data_generator(partition, xfiles, np.ones(xfiles.shape), args.max_len, args.batch_size, shuffle=False),
-        steps=pred_steps,
-        verbose=args.verbose
-        )
+    # xset = utils.direct_data_generator(xfiles)
+    # pred = model.predict(xset)
+    pst = time.time()
+    pred = model.predict(utils.direct_data_generator(xfiles, np.ones(len(xfiles))), steps=args.pred_steps, verbose=args.verbose)
+    ptt = (time.time() - pst)
+    print("Tier-1 Prediction Time [", ptt, "s ]:", ptt * 1000 / len(xfiles), "ms for ", len(xfiles), "samples")
     return pred
 
 
-def predict_byte_by_section(model, spartition, xfiles, q_sections, section_map, args):
+def predict_byte_by_section(model, xfiles, q_sections, args):
     """
         Function to perform prediction process on PE section level byte sequence of PE samples in Tier-2
         Params:
@@ -50,13 +54,10 @@ def predict_byte_by_section(model, spartition, xfiles, q_sections, section_map, 
         Returns:
             pred: object with predicted probabilities
     """
-    xlen = len(xfiles)
-    pred_steps = xlen//args.batch_size if xlen % args.batch_size == 0 else xlen//args.batch_size + 1
-    pred = model.predict(
-        utils.data_generator_by_section(spartition, q_sections, section_map, xfiles, np.ones(xfiles.shape), args.max_len, args.batch_size, shuffle=False),
-        steps=pred_steps,
-        verbose=args.verbose
-        )
+    pst = time.time()
+    pred = model.predict(utils.direct_data_generator_by_section(q_sections, xfiles, np.ones(len(xfiles))), steps=args.pred_steps, verbose=args.verbose)
+    ptt = (time.time() - pst)
+    print("Tier-2 Prediction Time [", ptt, "s ]:", ptt * 1000 / len(xfiles), "ms for ", len(xfiles), "samples")
     return pred
 
 
@@ -111,8 +112,8 @@ def calculate_prediction_metrics(predict_obj):
     predict_obj.fpr = (fp / (fp + tn)) * 100
     # print("Before AUC score computation:", predict_obj.thd, predict_obj.tpr, predict_obj.fpr)
     try:
-        predict_obj.auc = metrics.roc_auc_score(predict_obj.ytrue, predict_obj.ypred)
-        predict_obj.rauc = metrics.roc_auc_score(predict_obj.ytrue, predict_obj.ypred, max_fpr=cnst.OVERALL_TARGET_FPR/100)
+        predict_obj.auc = 0 #metrics.roc_auc_score(predict_obj.ytrue, predict_obj.ypred)
+        predict_obj.rauc = 0 #metrics.roc_auc_score(predict_obj.ytrue, predict_obj.ypred, max_fpr=cnst.OVERALL_TARGET_FPR/100)
     except Exception as e:
         logging.exception("Error during prediction metrics calculation.")
     return predict_obj
@@ -199,7 +200,45 @@ def get_bfn_mfp(pObj):
     pObj.yprobM1 = pObj.yprob[mrow_indices]
     pObj.ypredM1 = prediction[mrow_indices]
 
+    fps = np.where(np.all([pObj.ytrue.ravel() == cnst.BENIGN, prediction.ravel() == cnst.MALWARE], axis=0))
+    fns = np.where(np.all([pObj.ytrue.ravel() == cnst.MALWARE, prediction.ravel() == cnst.BENIGN], axis=0))
+    fpfn = np.concatenate([fps, fns], axis=1).ravel()
+
+    # Assign sample weights
+    if cnst.BROUND >= 0:
+        file_path = cnst.PKL_SOURCE_PATH+"sample_weights.csv"
+        if cnst.BROUND > 0 and os.path.exists(file_path):
+            fpfndf = pd.read_csv(file_path, header=None)
+            for i in fpfn:
+                lct = fpfndf.index[fpfndf.iloc[:, 0] == pObj.xtrue[i]]
+                if len(lct) > 0:
+                    fpfndf.iloc[lct[0], 4] = cnst.SAMPLE_WEIGHTS[cnst.BROUND]
+                else:
+                    row = pd.Series([pObj.xtrue[i], pObj.ytrue[i], pObj.yprob.ravel()[i], prediction.ravel()[i], cnst.SAMPLE_WEIGHTS[cnst.BROUND]])
+                    fpfndf = fpfndf.append(row, ignore_index=True)
+            fpfndf.to_csv(file_path, header=None, index=False)
+        else:
+            pd.DataFrame([pObj.xtrue[fpfn], pObj.ytrue[fpfn], pObj.yprob.ravel()[fpfn], prediction.ravel()[fpfn], np.ones(len(fpfn))*cnst.BASE_WEIGHT]).transpose().to_csv(file_path, header=None, index=False)
     return pObj
+
+
+def change_model(model, new_input_shape=(None, cnst.SAMPLE_SIZE)):
+    """ Function to transfer weights of pre-trained Malconv to the block based model with reduced input shape.
+        Args:
+            model: An object with required parameters/hyper-parameters for loading, configuring and compiling
+            new_input_shape: a value <= Tier-1 model's input shape. Typically, ( Num of Conv. Filters * Size of Conv. Stride )
+        Returns:
+            new_model: new model with reduced input shape and weights updated
+    """
+    model._layers[0].batch_input_shape = new_input_shape
+    new_model = model_from_json(model.to_json())
+    for layer in new_model.layers:
+        try:
+            layer.set_weights(model.get_layer(name=layer.name).get_weights())
+            # logging.info("Loaded and weights set for layer {}".format(layer.name))
+        except Exception as e:
+            logging.exception("Could not transfer weights for layer {}".format(layer.name))
+    return new_model
 
 
 def predict_tier1(model_idx, pobj, fold_index):
@@ -214,10 +253,17 @@ def predict_tier1(model_idx, pobj, fold_index):
     """
     predict_args = DefaultPredictArguments()
     tier1_model = load_model(predict_args.model_path + cnst.TIER1_MODELS[model_idx] + "_" + str(fold_index) + ".h5")
-    # model.summary()
+
+    print("Updating Model Input Size to ===================", cnst.SAMPLE_SIZE)
+    tier1_model = change_model(tier1_model, new_input_shape=(None, cnst.SAMPLE_SIZE))
+    # optimizer = optimizers.Adam(lr=0.001)
+    # tier1_model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+
+    xlen = len(pobj.xtrue)
+    predict_args.pred_steps = xlen // predict_args.batch_size if xlen % predict_args.batch_size == 0 else xlen // predict_args.batch_size + 1
 
     if cnst.EXECUTION_TYPE[model_idx] == cnst.BYTE:
-        pobj.yprob = predict_byte(tier1_model, pobj.partition, pobj.xtrue, predict_args)
+        pobj.yprob = predict_byte(tier1_model, pobj.xtrue, predict_args)
     elif cnst.EXECUTION_TYPE[model_idx] == cnst.FEATURISTIC:
         pobj.yprob = predict_by_features(tier1_model, pobj.xtrue, predict_args)
     elif cnst.EXECUTION_TYPE[model_idx] == cnst.FUSION:
@@ -308,6 +354,11 @@ def predict_tier2(model_idx, pobj, fold_index):
     predict_args = DefaultPredictArguments()
     tier2_model = load_model(predict_args.model_path + cnst.TIER2_MODELS[model_idx] + "_" + str(fold_index) + ".h5")
 
+    print("Updating Model Input Size to ===================", cnst.SAMPLE_SIZE)
+    tier2_model = change_model(tier2_model, new_input_shape=(None, cnst.SAMPLE_SIZE))
+    # optimizer = optimizers.Adam(lr=0.001)
+    # tier2_model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+
     '''if cnst.EXECUTION_TYPE[model_idx] == cnst.BYTE:
         # pbs.trigger_predict_by_section()
         pobj.yprob = predict_byte_by_section(tier2_model, pobj.spartition, pobj.xtrue, pobj.q_sections, pobj.predict_section_map, predict_args)
@@ -316,9 +367,12 @@ def predict_tier2(model_idx, pobj, fold_index):
     elif cnst.EXECUTION_TYPE[model_idx] == cnst.FUSION:
         pobj.yprob = predict_by_fusion(tier2_model, pobj.xtrue, predict_args)'''
 
+    xlen = len(pobj.xtrue)
+    predict_args.pred_steps = xlen // predict_args.batch_size if xlen % predict_args.batch_size == 0 else xlen // predict_args.batch_size + 1
+
     if cnst.EXECUTION_TYPE[model_idx] == cnst.BYTE:
         # pbs.trigger_predict_by_section()
-        pobj.yprob = predict_byte_by_section(tier2_model, pobj.spartition, pobj.xtrue, pobj.q_sections, pobj.predict_section_map, predict_args)
+        pobj.yprob = predict_byte_by_section(tier2_model, pobj.xtrue, pobj.q_sections, predict_args)
     elif cnst.EXECUTION_TYPE[model_idx] == cnst.FEATURISTIC:
         pobj.yprob = predict_by_features(tier2_model, pobj.xtrue, predict_args)
     elif cnst.EXECUTION_TYPE[model_idx] == cnst.FUSION:
@@ -400,6 +454,22 @@ def reconcile(pt1, pt2, cv_obj, fold_index):
           "\n[RECON TNs] =>" + str(np.sum(np.all([ytruereconciled.ravel() == cnst.BENIGN, ypredreconciled.ravel() == cnst.BENIGN], axis=0))) +
           "\tFNs:" + str(np.sum(np.all([ytruereconciled.ravel() == cnst.MALWARE, ypredreconciled.ravel() == cnst.BENIGN], axis=0))))
 
+    try:
+        pd.DataFrame().to_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+'out'+cnst.ESC+'result'+cnst.ESC + "overall_pred_results_" + str(fold_index) + ".csv", header=None, index=None)
+        reconciled_df = pd.concat([pd.DataFrame(xtruereconciled), pd.DataFrame(ytruereconciled), pd.DataFrame(yprobreconciled), pd.DataFrame(ypredreconciled)], axis=1)
+        reconciled_df.to_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+'out'+cnst.ESC+'result'+cnst.ESC + "overall_pred_results_" + str(fold_index) + ".csv", header=None, index=None)
+
+        pd.DataFrame().to_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+'out'+cnst.ESC+'result'+cnst.ESC + "b1_set_pred_results_" + str(fold_index) + ".csv", header=None, index=None)
+        b1_res = pd.concat([pd.DataFrame(pt1.xB1), pd.DataFrame(pt1.yB1), pd.DataFrame(pt1.yprobB1), pd.DataFrame(pt1.ypredB1)], axis=1)
+        b1_res.to_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+'out'+cnst.ESC+'result'+cnst.ESC + "b1_set_pred_results_" + str(fold_index) + ".csv", header=None, index=None)
+
+        pd.DataFrame().to_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+'out'+cnst.ESC+'result'+cnst.ESC + "tier2_test_" + str(fold_index) + ".csv", header=None, index=None)
+        ftier2_df = pd.concat([pd.DataFrame(pt2.xtrue), pd.DataFrame(pt2.ytrue), pd.DataFrame(pt2.yprob), pd.DataFrame(pt2.ypred)], axis=1)
+        ftier2_df.to_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+'out'+cnst.ESC+'result'+cnst.ESC + "tier2_test_" + str(fold_index) + ".csv", header=None, index=None)
+
+        print("Successfully saved overall prediction results in 'data' directory !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    except Exception as e:
+        print(str(e), "\n\nFailed to save overall prediction results !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     reconciled_tpr = np.array([])
     reconciled_fpr = np.array([])
     tier1_tpr = np.array([])
@@ -505,22 +575,41 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers=None):
     predict_t1_test_data_all.thd = thd1
 
     if not cnst.SKIP_TIER1_PREDICTION:
-        pd.DataFrame().to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "tier1_test_"+str(fold_index)+"_pkl.csv", header=None, index=None)
+        pd.DataFrame().to_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+'out'+cnst.ESC+'result'+cnst.ESC + "tier1_test_"+str(fold_index)+"_pkl.csv", header=None, index=None)
         pd.DataFrame().to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "b1_test_"+str(fold_index)+"_pkl.csv", header=None, index=None)
         pd.DataFrame().to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "m1_test_"+str(fold_index)+"_pkl.csv", header=None, index=None)
         pd.DataFrame().to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "b2_test_"+str(fold_index)+"_pkl.csv", header=None, index=None)
-        for pcount in test_partitions:
-            logging.info("Predicting partition: %s", pcount)
-            tst_datadf = pd.read_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + "p" + str(pcount) + ".csv", header=None)
+
+        ptt = 0
+        predict_args = DefaultPredictArguments()
+        tier1_model = load_model(predict_args.model_path + cnst.TIER1_MODELS[model_idx] + "_" + str(fold_index) + ".h5")
+        print("Updating Model Input Size to ===================", cnst.SAMPLE_SIZE)
+        tier1_model = change_model(tier1_model, new_input_shape=(None, cnst.SAMPLE_SIZE))
+        #  converter = tf.lite.TFLiteConverter.from_keras_model(tier1_model)
+        #  converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_SIZE]
+        #  tier1_model = converter.convert()
+
+        #save_model(tier1_model, include_optimizer=False, filepath=predict_args.model_path + cnst.TIER1_MODELS[model_idx] + "_" + str(fold_index) + "_optless.h5")
+        #tier1_model = load_model(predict_args.model_path + cnst.TIER1_MODELS[model_idx] + "_" + str(fold_index) + "_optless.h5")
+        #for pcount in test_partitions:
+        if True:
+            logging.info("Predicting Test Set")
+            tst_datadf = pd.read_csv(cnst.DATASET_BACKUP_FILE, header=None)  # cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "test_set.csv", header=None)
 
             predict_t1_test_data_partition = pObj(cnst.TIER1, None, tst_datadf.iloc[:, 0].values, tst_datadf.iloc[:, 1].values)
             predict_t1_test_data_partition.thd = thd1
             predict_t1_test_data_partition.boosting_upper_bound = boosting_bound
-            predict_t1_test_data_partition.partition = get_partition_data(None, None, pcount, "t1")
-            predict_t1_test_data_partition = predict_tier1(model_idx, predict_t1_test_data_partition, fold_index)
+            # predict_t1_test_data_partition.partition = get_partition_data(None, None, pcount, "t1")
 
-            del predict_t1_test_data_partition.partition  # Release Memory
-            gc.collect()
+            xlen = len(predict_t1_test_data_partition.xtrue)
+            predict_args.pred_steps = xlen // predict_args.batch_size if xlen % predict_args.batch_size == 0 else xlen // predict_args.batch_size + 1
+            #pst = time.time()
+            predict_t1_test_data_partition.yprob = predict_byte(tier1_model, predict_t1_test_data_partition.xtrue, predict_args)
+            #ptt += (time.time() - pst)
+            #print("FOR ALL PARTITIONS Tier-1 Prediction Time [", ptt, "s ]:", ptt * 1000 / len(predict_t1_test_data_partition.xtrue), "ms for ", len(predict_t1_test_data_partition.xtrue), "samples")
+
+            # del predict_t1_test_data_partition.partition  # Release Memory
+            # gc.collect()
 
             # predict_t1_test_data_partition = get_bfn_mfp(predict_t1_test_data_partition)
             predict_t1_test_data_partition = select_thd_get_metrics_bfn_mfp("TIER1", predict_t1_test_data_partition)
@@ -546,7 +635,7 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers=None):
             predict_t1_test_data_all.boosted_ypredB2 = predict_t1_test_data_partition.boosted_ypredB2 if predict_t1_test_data_all.boosted_ypredB2 is None else np.concatenate([predict_t1_test_data_all.boosted_ypredB2, predict_t1_test_data_partition.boosted_ypredB2])
 
             test_tier1datadf = pd.concat([pd.DataFrame(predict_t1_test_data_partition.xtrue), pd.DataFrame(predict_t1_test_data_partition.ytrue), pd.DataFrame(predict_t1_test_data_partition.yprob), pd.DataFrame(predict_t1_test_data_partition.ypred)], axis=1)
-            test_tier1datadf.to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "tier1_test_"+str(fold_index)+"_pkl.csv", header=None, index=None, mode='a')
+            test_tier1datadf.to_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+'out'+cnst.ESC+'result'+cnst.ESC + "tier1_test_"+str(fold_index)+"_pkl.csv", header=None, index=None, mode='a')
             test_b1datadf = pd.concat([pd.DataFrame(predict_t1_test_data_partition.xB1), pd.DataFrame(predict_t1_test_data_partition.yB1), pd.DataFrame(predict_t1_test_data_partition.yprobB1), pd.DataFrame(predict_t1_test_data_partition.ypredB1)], axis=1)
             test_b1datadf.to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "b1_test_"+str(fold_index)+"_pkl.csv", header=None, index=None, mode='a')
             test_m1datadf = pd.concat([pd.DataFrame(predict_t1_test_data_partition.xM1), pd.DataFrame(predict_t1_test_data_partition.yM1), pd.DataFrame(predict_t1_test_data_partition.yprobM1), pd.DataFrame(predict_t1_test_data_partition.ypredM1)], axis=1)
@@ -554,12 +643,20 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers=None):
             test_b2datadf = pd.concat([pd.DataFrame(predict_t1_test_data_partition.boosted_xB2), pd.DataFrame(predict_t1_test_data_partition.boosted_yB2), pd.DataFrame(predict_t1_test_data_partition.boosted_yprobB2), pd.DataFrame(predict_t1_test_data_partition.boosted_ypredB2)], axis=1)
             test_b2datadf.to_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "b2_test_"+str(fold_index)+"_pkl.csv", header=None, index=None, mode='a')
 
-        test_b1_partition_count = partition_pkl_files_by_count("b1_test", fold_index, predict_t1_test_data_all.xB1, predict_t1_test_data_all.yB1) if cnst.PARTITION_BY_COUNT else partition_pkl_files_by_size("b1_test", fold_index, predict_t1_test_data_all.xB1, predict_t1_test_data_all.yB1)
+        del tier1_model
 
+        # test_b1_partition_count = partition_pkl_files_by_count("b1_test", fold_index, predict_t1_test_data_all.xB1, predict_t1_test_data_all.yB1) if cnst.PARTITION_BY_COUNT else partition_pkl_files_by_size("b1_test", fold_index, predict_t1_test_data_all.xB1, predict_t1_test_data_all.yB1)
+        predict_t1_test_data_all = select_thd_get_metrics(predict_t1_test_data_all)
+        logging.info("Threshold used for Prediction : " + str(predict_t1_test_data_all.thd) + "\t\tTPR: {:6.3f}\tFPR: {:6.3f}\tAUC: {:6.3f}\tRst. AUC: {:6.3f}".format(predict_t1_test_data_all.tpr, predict_t1_test_data_all.fpr, predict_t1_test_data_all.auc,predict_t1_test_data_all.rauc))
+
+        # pd.DataFrame([{"b1_pred_partition_count": test_b1_partition_count}]).to_csv(os.path.join(cnst.DATA_SOURCE_PATH, "b1_pred_partitions_" + str(fold_index) + ".csv"), index=False)
+        # test_b1_partition_count = pd.read_csv(os.path.join(cnst.DATA_SOURCE_PATH, "b1_pred_partitions_"+str(fold_index)+".csv"))["b1_pred_partition_count"][0]
     else:
         logging.info("Skipped TIER-1 prediction")
 
-        test_tier1datadf_all = pd.read_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "tier1_test_"+str(fold_index)+"_pkl.csv", header=None)
+        test_b1_partition_count = pd.read_csv(os.path.join(cnst.DATA_SOURCE_PATH, "b1_pred_partitions_"+str(fold_index)+".csv"))["b1_pred_partition_count"][0]
+
+        test_tier1datadf_all = pd.read_csv(cnst.PROJECT_BASE_PATH+cnst.ESC+'out'+cnst.ESC+'result'+cnst.ESC + "tier1_test_"+str(fold_index)+"_pkl.csv", header=None)
         test_b1datadf_all = pd.read_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "b1_test_"+str(fold_index)+"_pkl.csv", header=None)
         test_m1datadf_all = pd.read_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "m1_test_"+str(fold_index)+"_pkl.csv", header=None)
         test_b2datadf_all = pd.read_csv(cnst.PROJECT_BASE_PATH + cnst.ESC + "data" + cnst.ESC + "b2_test_"+str(fold_index)+"_pkl.csv", header=None)
@@ -568,6 +665,8 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers=None):
         predict_t1_test_data_all.ytrue = test_tier1datadf_all.iloc[:, 1]
         predict_t1_test_data_all.yprob = test_tier1datadf_all.iloc[:, 2]
         predict_t1_test_data_all.ypred = test_tier1datadf_all.iloc[:, 3]
+
+        print(len(predict_t1_test_data_all.xtrue), len(predict_t1_test_data_all.ytrue), len(predict_t1_test_data_all.yprob), len(predict_t1_test_data_all.ypred))
 
         predict_t1_test_data_all.xB1 = test_b1datadf_all.iloc[:, 0]
         predict_t1_test_data_all.yB1 = test_b1datadf_all.iloc[:, 1]
@@ -587,8 +686,7 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers=None):
         logging.info("Loaded old TIER-1 prediction data")
 
     predict_t1_test_data_all = select_thd_get_metrics(predict_t1_test_data_all)
-    logging.info("Threshold used for Prediction : " + str(predict_t1_test_data_all.thd) + "\t\tTPR: {:6.3f}\tFPR: {:6.3f}\tAUC: {:6.3f}\tRst. AUC: {:6.3f}".format(
-        predict_t1_test_data_all.tpr, predict_t1_test_data_all.fpr, predict_t1_test_data_all.auc, predict_t1_test_data_all.rauc))
+    logging.info("Threshold used for Prediction : " + str(predict_t1_test_data_all.thd) + "\t\tTPR: {:6.3f}\tFPR: {:6.3f}\tAUC: {:6.3f}\tRst. AUC: {:6.3f}".format(predict_t1_test_data_all.tpr, predict_t1_test_data_all.fpr, predict_t1_test_data_all.auc, predict_t1_test_data_all.rauc))
 
     if len(predict_t1_test_data_all.xB1) == 0:
         logging.info("!!!!!      Skipping Tier-2 - B1 set is empty")
@@ -627,11 +725,48 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers=None):
         predict_t2_test_data_all.thd = thd2
         predict_t2_test_data_all.yprob = t2_nn_pred
         '''
+
+        # TIER-2 PREDICTION
+        logging.info("Prediction on Testing Data - TIER2 [B1 data]") #         # Partitions: %s", test_b1_partition_count)  # \t\t\tSection Map Length:", len(section_map))
+        ttt = 0
+        predict_args = DefaultPredictArguments()
+        tier2_model = load_model(predict_args.model_path + cnst.TIER2_MODELS[model_idx] + "_" + str(fold_index) + ".h5")
+        print("Updating Model Input Size to ===================", cnst.SAMPLE_SIZE)
+        tier2_model = change_model(tier2_model, new_input_shape=(None, cnst.SAMPLE_SIZE))
+
+        predict_t2_test_data_all = pObj(cnst.TIER2, None, None, None)
+        predict_t2_test_data_all.thd = thd2
+
+        # predict_t2_test_data_partition = pObj(cnst.TIER2, None, predict_t1_test_data_all.xtrue, predict_t1_test_data_all.ytrue)
+        predict_t2_test_data_partition = pObj(cnst.TIER2, None, predict_t1_test_data_all.xB1, predict_t1_test_data_all.yB1)
+        predict_t2_test_data_partition.thd = thd2
+        predict_t2_test_data_partition.q_sections = q_sections
+        predict_t2_test_data_partition.predict_section_map = section_map
+
+        xlen = len(predict_t2_test_data_partition.xtrue)
+        predict_args.pred_steps = xlen // predict_args.batch_size if xlen % predict_args.batch_size == 0 else xlen // predict_args.batch_size + 1
+
+        # st2 = time.time()
+        predict_t2_test_data_partition.yprob = predict_byte_by_section(tier2_model, predict_t2_test_data_partition.xtrue, predict_t2_test_data_partition.q_sections, predict_args)
+        # ttt += (time.time() - st2)
+
+        predict_t2_test_data_all.xtrue = predict_t2_test_data_partition.xtrue if predict_t2_test_data_all.xtrue is None else np.concatenate([predict_t2_test_data_all.xtrue, predict_t2_test_data_partition.xtrue])
+        predict_t2_test_data_all.ytrue = predict_t2_test_data_partition.ytrue if predict_t2_test_data_all.ytrue is None else np.concatenate([predict_t2_test_data_all.ytrue, predict_t2_test_data_partition.ytrue])
+        predict_t2_test_data_all.yprob = predict_t2_test_data_partition.yprob if predict_t2_test_data_all.yprob is None else np.concatenate([predict_t2_test_data_all.yprob, predict_t2_test_data_partition.yprob])
+        predict_t2_test_data_all.ypred = predict_t2_test_data_partition.ypred if predict_t2_test_data_all.ypred is None else np.concatenate([predict_t2_test_data_all.ypred, predict_t2_test_data_partition.ypred])
+
+        # print("FOR ALL PARTITIONS Tier-2 Prediction Time [", ttt, "s ]:", ttt * 1000 / len(predict_t2_test_data_partition.xtrue), "ms for ", len(predict_t2_test_data_partition.xtrue)," samples")
+        logging.info("Overall Tier-2 Test data Size updated: %s", predict_t2_test_data_all.ytrue.shape)
+
+        '''
         # TIER-2 PREDICTION
         logging.info("Prediction on Testing Data - TIER2 [B1 data]         # Partitions: %s", test_b1_partition_count)  # \t\t\tSection Map Length:", len(section_map))
         predict_t2_test_data_all = pObj(cnst.TIER2, None, None, None)
         predict_t2_test_data_all.thd = thd2
 
+        ttt = 0
+        predict_args = DefaultPredictArguments()
+        tier2_model = load_model(predict_args.model_path + cnst.TIER2_MODELS[model_idx] + "_" + str(fold_index) + ".h5")
         for pcount in range(0, test_b1_partition_count):
             b1_tst_datadf = pd.read_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + "b1_test_" + str(fold_index) + "_p" + str(pcount) + ".csv", header=None)
 
@@ -640,11 +775,18 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers=None):
             predict_t2_test_data_partition.q_sections = q_sections
             predict_t2_test_data_partition.predict_section_map = section_map
             # predict_t2_test_data_partition.wpartition = get_partition_data("b1_test", fold_index, pcount, "t1")
-            predict_t2_test_data_partition.spartition = get_partition_data("b1_test", fold_index, pcount, "t2")
-            predict_t2_test_data_partition = predict_tier2(model_idx, predict_t2_test_data_partition, fold_index)
+            # predict_t2_test_data_partition.spartition = get_partition_data("b1_test", fold_index, pcount, "t2")
+
+            xlen = len(predict_t2_test_data_partition.xtrue)
+            predict_args.pred_steps = xlen // predict_args.batch_size if xlen % predict_args.batch_size == 0 else xlen // predict_args.batch_size + 1
+
+            st2 = time.time()
+            # predict_t2_test_data_partition = predict_tier2(model_idx, predict_t2_test_data_partition, fold_index)
+            predict_t2_test_data_partition.yprob = predict_byte_by_section(tier2_model, predict_t2_test_data_partition.xtrue, predict_t2_test_data_partition.q_sections, predict_args)
+            ttt += (time.time() - st2)
 
             # del predict_t2_test_data_partition.wpartition  # Release Memory
-            del predict_t2_test_data_partition.spartition  # Release Memory
+            # del predict_t2_test_data_partition.spartition  # Release Memory
             gc.collect()
 
             predict_t2_test_data_all.xtrue = predict_t2_test_data_partition.xtrue if predict_t2_test_data_all.xtrue is None else np.concatenate([predict_t2_test_data_all.xtrue, predict_t2_test_data_partition.xtrue])
@@ -653,6 +795,10 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers=None):
             predict_t2_test_data_all.ypred = predict_t2_test_data_partition.ypred if predict_t2_test_data_all.ypred is None else np.concatenate([predict_t2_test_data_all.ypred, predict_t2_test_data_partition.ypred])
 
             logging.info("Overall Tier-2 Test data Size updated: %s", predict_t2_test_data_all.ytrue.shape)
+
+        print("[][][][][][] FOR ALL PARTITIONS Tier-2 Prediction Time [", ttt, "s ]:", ttt * 1000 / len(predict_t2_test_data_all.xtrue), "ms for ", len(predict_t2_test_data_all.xtrue)," samples")
+        del tier2_model
+        '''
 
         predict_t2_test_data_all = select_thd_get_metrics_bfn_mfp(cnst.TIER2, predict_t2_test_data_all)
         display_probability_chart(predict_t2_test_data_all.ytrue, predict_t2_test_data_all.yprob, predict_t2_test_data_all.thd, "TESTING_TIER2_PROB_PLOT_F" + str(fold_index))
@@ -674,11 +820,11 @@ def init(model_idx, test_partitions, cv_obj, fold_index, scalers=None):
         still_benign_indices = np.where(np.all([predict_t2_test_data_all.ytrue.ravel() == cnst.BENIGN, predict_t2_test_data_all.ypred.ravel() == cnst.BENIGN], axis=0))[0]
         predict_t2_test_data_all.yprob[still_benign_indices] = predict_t1_test_data_all.yprobB1[still_benign_indices]  # Assign Tier-1 probabilities for samples that are still benign to avoid AUC conflict
 
-        new_tp_indices = np.where(np.all([predict_t2_test_data_all.ytrue.ravel() == cnst.MALWARE, predict_t2_test_data_all.ypred.ravel() == cnst.MALWARE], axis=0))[0]
-        predict_t2_test_data_all.yprob[new_tp_indices] -= predict_t2_test_data_all.yprob[new_tp_indices] + 1
+        # new_tp_indices = np.where(np.all([predict_t2_test_data_all.ytrue.ravel() == cnst.MALWARE, predict_t2_test_data_all.ypred.ravel() == cnst.MALWARE], axis=0))[0]
+        # predict_t2_test_data_all.yprob[new_tp_indices] -= predict_t2_test_data_all.yprob[new_tp_indices] + 1
 
-        new_fp_indices = np.where(np.all([predict_t2_test_data_all.ytrue.ravel() == cnst.BENIGN, predict_t2_test_data_all.ypred.ravel() == cnst.MALWARE], axis=0))[0]
-        predict_t2_test_data_all.yprob[new_fp_indices] -= predict_t2_test_data_all.yprob[new_fp_indices]
+        # new_fp_indices = np.where(np.all([predict_t2_test_data_all.ytrue.ravel() == cnst.BENIGN, predict_t2_test_data_all.ypred.ravel() == cnst.MALWARE], axis=0))[0]
+        # predict_t2_test_data_all.yprob[new_fp_indices] -= predict_t2_test_data_all.yprob[new_fp_indices]
 
         cvobj, benchmark_fpr = reconcile(predict_t1_test_data_all, predict_t2_test_data_all, cv_obj, fold_index)
         # benchmark_tier1(model_idx, predict_t1_test_data, fold_index, benchmark_fpr)

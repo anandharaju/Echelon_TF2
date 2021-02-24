@@ -77,7 +77,7 @@ def partition_pkl_files_by_size(type, fold, files, labels):
     return partition_count
 
 
-def partition_pkl_files_by_count(type, fold, files, labels):
+def bkp_partition_pkl_files_by_count(type, fold, files, labels):
     if type is not None:
         partition_label = type + "_" + str(fold) + "_"
     else:
@@ -120,6 +120,66 @@ def partition_pkl_files_by_count(type, fold, files, labels):
                 cur_t2pkl = pickle.load(f2)
                 t1_partition_data[file[:-4]] = cur_t1pkl
                 t2_partition_data[file[:-4]] = cur_t2pkl
+                cur_partition_file_count += 1
+        except Exception as e:
+            logging.exception("Error while reading pickle file for partitioning %s   %s", i, file)
+
+    if cur_partition_file_count > 0:
+        t1_partition_path = os.path.join(cnst.DATA_SOURCE_PATH, partition_label+"t1_p"+str(partition_count))
+        t2_partition_path = os.path.join(cnst.DATA_SOURCE_PATH, partition_label+"t2_p"+str(partition_count))
+        with open(t1_partition_path + ".pkl", "wb") as pt1handle:
+            pickle.dump(t1_partition_data, pt1handle)
+        with open(t2_partition_path + ".pkl", "wb") as pt2handle:
+            pickle.dump(t2_partition_data, pt2handle)
+        pd.DataFrame(list(zip(files[start:], labels[start:]))).to_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + partition_label + "p" + str(partition_count) + ".csv", header=None, index=False)
+        logging.info("Created Partition " + partition_label+"p"+str(partition_count) + " with " + str(cur_partition_file_count) + " files and tracker csv with " + str(len(files[start:])) + " files.")
+        partition_count += 1
+    return partition_count
+
+
+def partition_pkl_files_by_count(type, fold, files, labels):
+    if type is not None:
+        partition_label = type + "_" + str(fold) + "_"
+    else:
+        partition_label = ""
+
+    # csv = pd.read_csv(csv_path, header=None)
+    logging.info("Total number of files to partition: %s", len(files))
+    partition_count = 0
+    t1_partition_data = {}
+    t2_partition_data = {}
+    cur_partition_file_count = 0
+    start = 0
+    end = 0
+
+    for i, file in enumerate(files):  # iloc[:, 0]:
+        t1_pkl_src_path = os.path.join(cnst.PKL_SOURCE_PATH + "t1" + cnst.ESC, file)
+        t2_pkl_src_path = os.path.join(cnst.PKL_SOURCE_PATH + "t2" + cnst.ESC, file)
+
+        if cur_partition_file_count == cnst.MAX_FILES_PER_PARTITION:
+            t1_partition_path = os.path.join(cnst.DATA_SOURCE_PATH, partition_label + "t1_p" + str(partition_count))
+            t2_partition_path = os.path.join(cnst.DATA_SOURCE_PATH, partition_label + "t2_p" + str(partition_count))
+
+            with open(t1_partition_path+".pkl", "wb") as pt1handle:
+                pickle.dump(t1_partition_data, pt1handle)
+            with open(t2_partition_path+".pkl", "wb") as pt2handle:
+                pickle.dump(t2_partition_data, pt2handle)
+
+            end = i
+            pd.DataFrame(list(zip(files[start:end], labels[start:end]))).to_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + partition_label + "p" + str(partition_count) + ".csv", header=None, index=False)
+            logging.info("Created Partition " + partition_label+"p"+str(partition_count) + " with " + str(cur_partition_file_count) + " files and tracker csv with " + str(len(files[start:end])) + " files.")
+            partition_count += 1
+            t1_partition_data = {}
+            t2_partition_data = {}
+            cur_partition_file_count = 0
+            start = end
+
+        try:
+            with open(t1_pkl_src_path, 'rb') as f1, open(t2_pkl_src_path, 'rb') as f2:
+                # cur_t1pkl = pickle.load(f1)
+                # cur_t2pkl = pickle.load(f2)
+                t1_partition_data[file] = f1.read()
+                t2_partition_data[file] = f2.read()
                 cur_partition_file_count += 1
         except Exception as e:
             logging.exception("Error while reading pickle file for partitioning %s   %s", i, file)

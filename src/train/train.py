@@ -44,7 +44,7 @@ def train(args):
     args.t1_mcp = ModelCheckpoint(join(args.save_path, args.t1_model_name),
                                monitor="acc", save_best_only=args.save_best, save_weights_only=False)
 
-    data_gen = utils.data_generator(args.train_partition, args.t1_x_train, args.t1_y_train, args.t1_max_len, args.t1_batch_size, args.t1_shuffle)
+    data_gen = utils.direct_data_generator(args.t1_x_train, args.t1_y_train)
     history = args.t1_model_base.fit(
         data_gen,
         class_weight=args.t1_class_weights,
@@ -107,7 +107,7 @@ def train_by_section(args):
 
     # Check MAX_LEN modification is needed - based on proportion of section vs whole file size
     # args.max_len = cnst.MAX_FILE_SIZE_LIMIT + (cnst.CONV_WINDOW_SIZE * len(args.q_sections))
-    data_gen = utils.data_generator_by_section(args.section_b1_train_partition, args.q_sections, args.train_section_map, args.t2_x_train, args.t2_y_train, args.t2_max_len, args.t2_batch_size, args.t2_shuffle)
+    data_gen = utils.direct_data_generator_by_section(args.q_sections, args.t2_x_train, args.t2_y_train)
     history = args.t2_model_base.fit(
         data_gen,
         class_weight=args.t2_class_weights,
@@ -123,6 +123,45 @@ def train_by_section(args):
     return history
 
 
+def change_model(model, new_input_shape=(None, cnst.TIER2_NEW_INPUT_SHAPE)):
+    """ Function to transfer weights of pre-trained Malconv to the block based model with reduced input shape.
+        Args:
+            model: An object with required parameters/hyper-parameters for loading, configuring and compiling
+            new_input_shape: a value <= Tier-1 model's input shape. Typically, ( Num of Conv. Filters * Size of Conv. Stride )
+        Returns:
+            new_model: new model with reduced input shape and weights updated
+    """
+    model._layers[0].batch_input_shape = new_input_shape
+    new_model = model_from_json(model.to_json())
+    for layer in new_model.layers:
+        try:
+            layer.set_weights(model.get_layer(name=layer.name).get_weights())
+            logging.info("Loaded and weights set for layer {}".format(layer.name))
+        except Exception as e:
+            logging.exception("Could not transfer weights for layer {}".format(layer.name))
+    return new_model
+
+
+def change_hydra(model, ech_model, new_input_shape=(None, cnst.TIER2_NEW_INPUT_SHAPE)):
+    """ Function to transfer weights of pre-trained Malconv to the block based model with reduced input shape.
+        Args:
+            model: An object with required parameters/hyper-parameters for loading, configuring and compiling
+            new_input_shape: a value <= Tier-1 model's input shape. Typically, ( Num of Conv. Filters * Size of Conv. Stride )
+        Returns:
+            new_model: new model with reduced input shape and weights updated
+    """
+    model._layers[0].batch_input_shape = new_input_shape
+    new_model = ech_model  # model_from_json(model.to_json())
+    print("Updating Layer weights")
+    for layer in new_model.layers:
+        try:
+            layer.set_weights(model.get_layer(name=layer.name).get_weights())
+            logging.info("Loaded and weights set for layer {}".format(layer.name))
+        except Exception as e:
+            logging.exception("Could not transfer weights for layer {}".format(layer.name))
+    return new_model
+
+
 def get_model1(args):
     """ Function to prepare model required for Tier-1's training/prediction.
         Args:
@@ -136,6 +175,10 @@ def get_model1(args):
         if cnst.USE_PRETRAINED_FOR_TIER1:
             logging.info("[ CAUTION ] : Resuming with pretrained model for TIER1 - " + args.pretrained_t1_model_name)
             model1 = load_model(args.model_path + args.pretrained_t1_model_name, compile=False)
+            print("\n\n\nChanging model input ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n")
+            logging.info(str(model1.summary()))
+            model1 = change_model(model1, new_input_shape=(None, cnst.TIER2_NEW_INPUT_SHAPE))
+            logging.info(str(model1.summary()))
             model1.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
             if cnst.NUM_GPU > 1:
                 multi_gpu_model1 = multi_gpu_model(model1, gpus=cnst.NUM_GPU)
@@ -152,7 +195,9 @@ def get_model1(args):
     else:
         logging.info("[CAUTION]: Proceeding training with custom model skeleton")
         if args.byte:
-            model1 = echelon.model(args.t1_max_len, args.t1_win_size)
+            premodel = load_model(args.model_path + args.pretrained_t1_model_name, compile=False)
+            echmodel = echelon.model(args.t1_max_len, args.t1_win_size)
+            change_hydra(premodel, echmodel)
         elif args.featuristic:
             model1 = featuristic.model(args.total_features)
         elif args.fusion:
@@ -174,6 +219,10 @@ def get_model2(args):
         if cnst.USE_PRETRAINED_FOR_TIER2:
             logging.info("[ CAUTION ] : Resuming with pretrained model for TIER2 - " + args.pretrained_t2_model_name)
             model2 = load_model(args.model_path + args.pretrained_t2_model_name, compile=False)
+            print("\n\n\nChanging model input ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n")
+            logging.info(str(model2.summary()))
+            model2 = change_model(model2, new_input_shape=(None, cnst.TIER2_NEW_INPUT_SHAPE))
+            logging.info(str(model2.summary()))
             model2.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=["accuracy"])
             if cnst.NUM_GPU > 1:
                 model2 = multi_gpu_model(model2, gpus=cnst.NUM_GPU)
@@ -273,7 +322,8 @@ def evaluate_tier1(args):
     args.t1_val_steps = eval_steps - 1 if len(args.t1_x_val) % args.t1_batch_size == 0 else eval_steps + 1
 
     history = args.t1_model_base.evaluate_generator(
-        utils.data_generator(args.val_partition, args.t1_x_val, args.t1_y_val, args.t1_max_len, args.t1_batch_size, args.t1_shuffle),
+        # utils.train_data_generator(args.val_partition, args.t1_x_val, args.t1_y_val, args.t1_max_len, args.t1_batch_size, args.t1_shuffle),
+        utils.direct_data_generator(args.t1_x_val, args.t1_y_val),
         steps=args.t1_val_steps,
         verbose=args.t1_verbose
     )
@@ -292,7 +342,8 @@ def evaluate_tier2(args):
     args.t2_val_steps = eval_steps - 1 if len(args.t2_x_val) % args.t2_batch_size == 0 else eval_steps + 1
 
     history = args.t2_model_base.evaluate_generator(
-        utils.data_generator_by_section(args.spartition, args.q_sections, None, args.t2_x_val, args.t2_y_val, args.t2_max_len, args.t2_batch_size, args.t2_shuffle),
+        # utils.train_data_generator_by_section(args.spartition, args.q_sections, args.t2_x_val, args.t2_y_val, args.t2_max_len, args.t2_batch_size, args.t2_shuffle),
+        utils.direct_data_generator_by_section(args.q_sections, args.t2_x_val, args.t2_y_val),
         steps=args.t2_val_steps,
         verbose=args.t2_verbose
     )
@@ -452,6 +503,7 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
             val_datadf = pd.read_csv(cnst.DATA_SOURCE_PATH + cnst.ESC + "p"+str(vp_idx)+".csv", header=None)
             predict_t1_val_data = pObj(cnst.TIER1, cnst.TIER1_TARGET_FPR, val_datadf.iloc[:, 0].values, val_datadf.iloc[:, 1].values)
             predict_t1_val_data.partition = get_partition_data(None, None, vp_idx, "t1")
+
             predict_t1_val_data = predict.predict_tier1(model_idx, predict_t1_val_data, fold_index)
             predict_t1_val_data = predict.select_thd_get_metrics_bfn_mfp(cnst.TIER1, predict_t1_val_data)
 
@@ -681,7 +733,7 @@ def init(model_idx, train_partitions, val_partitions, fold_index):
 
         display_probability_chart(predict_t2_val_data_all.ytrue, predict_t2_val_data_all.yprob, predict_t2_val_data_all.thd, "Training_TIER2_PROB_PLOT_F" + str(fold_index) + "_" + str(qcnt))
         curdiff = predict_t2_val_data_all.tpr - predict_t2_val_data_all.fpr
-        if curdiff != 0 and curdiff > maxdiff:
+        if True:  # curdiff != 0 and curdiff > maxdiff:
             # Save the PE sections that had maximum TPR and low FPR over B1 training data as Final Qualified sections
             maxdiff = curdiff
             q_criterion_selected = q_criterion
